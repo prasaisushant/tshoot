@@ -56,6 +56,13 @@ type AppState struct {
 	// Ping metrics (Phase 4+)
 	PingResults []PingStat
 	PingError   string
+
+	// Docker metrics (Phase 5+)
+	DockerContainers    []DockerContainerStat
+	SelectedContainerID string
+	SelectedContainer   string
+	ContainerLogs       []string
+	DockerError         string
 }
 
 // SystemMetrics contains live values shown in dashboard panels.
@@ -99,6 +106,14 @@ type PingStat struct {
 	LatencyMS float64
 }
 
+// DockerContainerStat represents one docker container row.
+type DockerContainerStat struct {
+	ID     string
+	Name   string
+	Status string
+	Ports  string
+}
+
 // NewAppState creates a new app state with sensible defaults
 func NewAppState(width, height int) *AppState {
 	return &AppState{
@@ -116,6 +131,8 @@ func NewAppState(width, height int) *AppState {
 		OpenPorts:       []PortStat{},
 		IPRouteLines:    []string{},
 		PingResults:     []PingStat{},
+		DockerContainers: []DockerContainerStat{},
+		ContainerLogs:    []string{},
 	}
 }
 

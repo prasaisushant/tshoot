@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -22,6 +23,7 @@ type App struct {
 	cpuCalc *collectors.CPUCalculator
 	procCalc *collectors.ProcessCollector
 	pingTargets []collectors.PingTarget
+	docker *collectors.DockerCollector
 }
 
 type metricsTickMsg time.Time
@@ -32,6 +34,7 @@ func NewApp() *App {
 	state := models.NewAppState(80, 24) // Default size, will be updated on first render
 
 	theme := ui.GetTheme(config.General.Theme)
+	dockerCollector, _ := collectors.NewDockerCollector()
 
 	return &App{
 		state:   state,
@@ -43,6 +46,7 @@ func NewApp() *App {
 			{Label: "Google DNS", Host: "8.8.8.8"},
 			{Label: "Cloudflare", Host: "1.1.1.1"},
 		},
+		docker: dockerCollector,
 	}
 }
 
@@ -112,12 +116,71 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				a.state.PingError = ""
 			}
+
+			a.collectDockerSnapshot()
 		}
 		return a, scheduleMetricsTick()
 	case tea.QuitMsg:
 		return a, tea.Quit
 	}
 	return a, nil
+}
+
+func (a *App) collectDockerSnapshot() {
+	if a.docker == nil {
+		a.state.DockerError = "docker unavailable"
+		a.state.DockerContainers = []models.DockerContainerStat{}
+		a.state.ContainerLogs = []string{"Docker unavailable"}
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	defer cancel()
+
+	containers, err := a.docker.CollectContainers(ctx, 6)
+	if err != nil {
+		a.state.DockerError = err.Error()
+		a.state.DockerContainers = []models.DockerContainerStat{}
+		a.state.ContainerLogs = []string{"Docker error: " + err.Error()}
+		return
+	}
+	a.state.DockerContainers = containers
+	if len(containers) == 0 {
+		a.state.DockerError = ""
+		a.state.SelectedContainerID = ""
+		a.state.SelectedContainer = ""
+		a.state.ContainerLogs = []string{"No containers"}
+		return
+	}
+
+	if a.state.SelectedContainerID == "" {
+		a.state.SelectedContainerID = containers[0].ID
+		a.state.SelectedContainer = containers[0].Name
+	}
+
+	var selected models.DockerContainerStat
+	found := false
+	for _, c := range containers {
+		if c.ID == a.state.SelectedContainerID {
+			selected = c
+			found = true
+			break
+		}
+	}
+	if !found {
+		selected = containers[0]
+		a.state.SelectedContainerID = selected.ID
+	}
+	a.state.SelectedContainer = selected.Name
+
+	logs, err := a.docker.CollectContainerLogs(ctx, a.state.SelectedContainerID, 30)
+	if err != nil {
+		a.state.DockerError = err.Error()
+		a.state.ContainerLogs = []string{"Log error: " + err.Error()}
+		return
+	}
+	a.state.DockerError = ""
+	a.state.ContainerLogs = logs
 }
 
 func scheduleMetricsTick() tea.Cmd {

@@ -264,22 +264,14 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 		Title:  "Docker Containers",
 		Width:  col3Widths[1],
 		Height: row3Height,
-		Content: []string{
-			"nginx-proxy  Up 3d",
-			"postgres-db  Up 12h",
-			"api-server   Up 1h",
-		},
+		Content: formatDockerContainersContent(state.DockerContainers, state.DockerError),
 	}
 
 	logsPanel := &Panel{
 		Title:  "Container Logs",
 		Width:  col3Widths[2],
 		Height: row3Height,
-		Content: []string{
-			"[nginx] 2026-05-28",
-			"[nginx] GET / 200",
-			"[nginx] GET /api 200",
-		},
+		Content: formatContainerLogsContent(state.SelectedContainer, state.ContainerLogs, state.DockerError),
 	}
 
 	row3 := lipgloss.JoinHorizontal(lipgloss.Top,
@@ -467,6 +459,47 @@ func formatPingContent(results []models.PingStat, errSummary string) []string {
 		lines = append(lines, "Data: limited")
 	}
 	return lines
+}
+
+func formatDockerContainersContent(containers []models.DockerContainerStat, errSummary string) []string {
+	if len(containers) == 0 {
+		if errSummary != "" {
+			return []string{"Data: limited (" + errSummary + ")"}
+		}
+		return []string{"No containers"}
+	}
+
+	lines := make([]string, 0, len(containers))
+	for _, c := range containers {
+		status := c.Status
+		if lipgloss.Width(status) > 12 {
+			status = truncateToWidth(status, 12)
+		}
+		lines = append(lines, fmt.Sprintf("%-14s %-12s", c.Name, status))
+	}
+	return lines
+}
+
+func formatContainerLogsContent(selected string, logs []string, errSummary string) []string {
+	if errSummary != "" && len(logs) == 0 {
+		return []string{"Data: limited (" + errSummary + ")"}
+	}
+
+	out := make([]string, 0, len(logs)+1)
+	if selected != "" {
+		out = append(out, "["+selected+"]")
+	}
+	if len(logs) == 0 {
+		out = append(out, "No logs")
+		return out
+	}
+
+	start := 0
+	if len(logs) > 6 {
+		start = len(logs) - 6
+	}
+	out = append(out, logs[start:]...)
+	return out
 }
 
 // RenderModal renders a modal overlay (stub for Phase 1)
