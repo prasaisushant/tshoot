@@ -123,7 +123,7 @@ func RenderFKeyBar(theme *Theme, width int) string {
 		"F7:Export",
 		"r:Reload",
 		"p:Pause",
-		"/:Search",
+		"s:Storage",
 		"Tab:Next",
 		"?:Help",
 		"b:Back",
@@ -178,15 +178,17 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 		},
 	}
 
+	storageTitle := "Storage"
+	if state.StorageListView {
+		storageTitle += " (list)"
+	}
+	storageStyle := theme.PanelStyle(col4Widths[1])
+	storageContentWidth := max(1, col4Widths[1]-storageStyle.GetHorizontalFrameSize())
 	storagePanel := &Panel{
-		Title:  "Storage",
-		Width:  col4Widths[1],
-		Height: row1Height,
-		Content: []string{
-			"/      ext4 23%",
-			"/home  ext4 67%",
-			"sda    1.0T",
-		},
+		Title:   storageTitle,
+		Width:   col4Widths[1],
+		Height:  row1Height,
+		Content: formatStorageContent(state.StorageMounts, state.StorageDeviceEntries, state.StorageError, state.StorageIOReadKB, state.StorageIOWriteKB, state.StorageLoopCount, state.StorageListView, storageContentWidth),
 	}
 
 	pingPanel := &Panel{
@@ -454,6 +456,124 @@ func formatPingContent(results []models.PingStat, errSummary string) []string {
 		lines = append(lines, "Data: limited")
 	}
 	return lines
+}
+
+func formatStorageContent(mounts []models.StorageMount, devices []models.StorageDeviceEntry, errSummary string, readKB, writeKB float64, loopCount int, listView bool, width int) []string {
+	ioLine := formatStorageIOLine(readKB, writeKB)
+	if listView {
+		if len(devices) == 0 {
+			if errSummary != "" {
+				return []string{"Data: limited (" + errSummary + ")"}
+			}
+			return []string{"No device data"}
+		}
+
+		lines := make([]string, 0, len(devices)+3)
+		for _, d := range devices {
+			lines = append(lines, formatDeviceLine(d, width))
+		}
+		if loopCount > 0 {
+			lines = append(lines, fmt.Sprintf("loop*: %d devices", loopCount))
+		}
+		if ioLine != "" {
+			lines = append(lines, ioLine)
+		}
+		if errSummary != "" {
+			lines = append(lines, "Data: limited ("+errSummary+")")
+		}
+		return lines
+	}
+
+	if len(mounts) == 0 {
+		if errSummary != "" {
+			return []string{"Data: limited (" + errSummary + ")"}
+		}
+		return []string{"No mount data"}
+	}
+
+	lines := make([]string, 0, len(mounts)+3)
+	for _, m := range mounts {
+		lines = append(lines, formatStorageLine(m, width))
+	}
+	if loopCount > 0 {
+		lines = append(lines, fmt.Sprintf("loop*: %d devices", loopCount))
+	}
+	if ioLine != "" {
+		lines = append(lines, ioLine)
+	}
+	if errSummary != "" {
+		lines = append(lines, "Data: limited ("+errSummary+")")
+	}
+	return lines
+}
+
+func formatStorageLine(entry models.StorageMount, width int) string {
+	rightFields := fmt.Sprintf("%-6s %5s %8s", entry.FSType, entry.UsePct, entry.Size)
+	if width <= lipgloss.Width(rightFields)+1 {
+		return truncateToWidth(rightFields, width)
+	}
+
+	mountWidth := width - lipgloss.Width(rightFields) - 1
+	return fmt.Sprintf("%-*s %s", mountWidth, truncateMiddle(entry.Mount, mountWidth), rightFields)
+}
+
+func formatDeviceLine(entry models.StorageDeviceEntry, width int) string {
+	if width < 24 {
+		return truncateToWidth(fmt.Sprintf("%s %s %s", entry.Name, entry.Type, entry.Size), width)
+	}
+
+	rightFields := fmt.Sprintf("%-6s %6s", entry.Type, entry.Size)
+	mountWidth := width - lipgloss.Width(rightFields) - lipgloss.Width(entry.Name) - 2
+	if mountWidth < 0 {
+		mountWidth = 0
+	}
+	return fmt.Sprintf("%-8s %s %s", entry.Name, rightFields, truncateMiddle(entry.Mount, mountWidth))
+}
+
+func formatStorageIOLine(readKB, writeKB float64) string {
+	if readKB <= 0 && writeKB <= 0 {
+		return "I/O: warming up"
+	}
+	readText := formatSizeWithUnit(readKB)
+	writeText := formatSizeWithUnit(writeKB)
+	return fmt.Sprintf("I/O: R %s/s  W %s/s", readText, writeText)
+}
+
+func formatSizeWithUnit(kb float64) string {
+	if kb >= 1024 {
+		return fmt.Sprintf("%.1fMB", kb/1024)
+	}
+	return fmt.Sprintf("%.0fKB", kb)
+}
+
+func truncateMiddle(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	if width <= 6 {
+		return truncateToWidth(s, width)
+	}
+
+	leftWidth := (width - 3) / 2
+	rightWidth := width - 3 - leftWidth
+	left := truncateToWidth(s, leftWidth)
+
+	runes := []rune(s)
+	var suffix []rune
+	currentWidth := 0
+	for i := len(runes) - 1; i >= 0; i-- {
+		runeWidth := lipgloss.Width(string(runes[i]))
+		if currentWidth+runeWidth > rightWidth {
+			break
+		}
+		suffix = append([]rune{runes[i]}, suffix...)
+		currentWidth += runeWidth
+	}
+
+	return left + "..." + string(suffix)
 }
 
 func formatDockerContainersContent(containers []models.DockerContainerStat, errSummary string) []string {

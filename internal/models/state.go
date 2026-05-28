@@ -4,30 +4,30 @@ package models
 type UIMode string
 
 const (
-	ModeNormal   UIMode = "normal"
-	ModeModal    UIMode = "modal"
-	ModeFocused  UIMode = "focused"
-	ModePaused   UIMode = "paused"
+	ModeNormal  UIMode = "normal"
+	ModeModal   UIMode = "modal"
+	ModeFocused UIMode = "focused"
+	ModePaused  UIMode = "paused"
 )
 
 // ModalType represents which modal (if any) is currently open
 type ModalType string
 
 const (
-	ModalNone         ModalType = ""
-	ModalRefreshRate  ModalType = "refresh_rate"
-	ModalDocker       ModalType = "docker"
-	ModalPing         ModalType = "ping"
-	ModalFocus        ModalType = "focus_grid"
-	ModalTheme        ModalType = "theme"
-	ModalAlerts       ModalType = "alerts"
-	ModalExport       ModalType = "export"
+	ModalNone        ModalType = ""
+	ModalRefreshRate ModalType = "refresh_rate"
+	ModalDocker      ModalType = "docker"
+	ModalPing        ModalType = "ping"
+	ModalFocus       ModalType = "focus_grid"
+	ModalTheme       ModalType = "theme"
+	ModalAlerts      ModalType = "alerts"
+	ModalExport      ModalType = "export"
 )
 
 // AppState holds the global application state
 type AppState struct {
 	// UI Mode
-	Mode       UIMode
+	Mode        UIMode
 	ActiveModal ModalType
 
 	// Window dimensions
@@ -52,6 +52,15 @@ type AppState struct {
 	OpenPorts    []PortStat
 	IPRouteLines []string
 	NetworkError string
+
+	// Storage metrics (Phase 5+)
+	StorageMounts        []StorageMount
+	StorageDeviceEntries []StorageDeviceEntry
+	StorageLoopCount     int
+	StorageIOReadKB      float64
+	StorageIOWriteKB     float64
+	StorageListView      bool
+	StorageError         string
 
 	// Ping metrics (Phase 4+)
 	PingResults []PingStat
@@ -85,10 +94,10 @@ type SystemMetrics struct {
 
 // ProcessStat holds process info for top lists.
 type ProcessStat struct {
-	PID       int
-	Name      string
+	PID        int
+	Name       string
 	CPUPercent float64
-	MemoryMB  int
+	MemoryMB   int
 }
 
 // PortStat represents an open socket mapped to a process when possible.
@@ -97,6 +106,22 @@ type PortStat struct {
 	Proto   string
 	PID     int
 	Process string
+}
+
+// StorageMount represents one filesystem mount line.
+type StorageMount struct {
+	Mount  string
+	FSType string
+	UsePct string
+	Size   string
+}
+
+// StorageDeviceEntry represents one block device entry line.
+type StorageDeviceEntry struct {
+	Name  string
+	Size  string
+	Type  string
+	Mount string
 }
 
 // PingStat represents status/latency for one target.
@@ -127,14 +152,20 @@ func NewAppState(width, height int) *AppState {
 		Metrics: SystemMetrics{
 			Clock: "N/A",
 		},
-		TopCPUProcesses: []ProcessStat{},
-		TopMemProcesses: []ProcessStat{},
-		OpenPorts:       []PortStat{},
-		IPRouteLines:    []string{},
-		PingResults:     []PingStat{},
-		DockerContainers: []DockerContainerStat{},
-		DockerModalIndex: 0,
-		ContainerLogs:    []string{},
+		TopCPUProcesses:      []ProcessStat{},
+		TopMemProcesses:      []ProcessStat{},
+		OpenPorts:            []PortStat{},
+		IPRouteLines:         []string{},
+		StorageMounts:        []StorageMount{},
+		StorageDeviceEntries: []StorageDeviceEntry{},
+		StorageLoopCount:     0,
+		StorageIOReadKB:      0,
+		StorageIOWriteKB:     0,
+		StorageListView:      false,
+		PingResults:          []PingStat{},
+		DockerContainers:     []DockerContainerStat{},
+		DockerModalIndex:     0,
+		ContainerLogs:        []string{},
 	}
 }
 

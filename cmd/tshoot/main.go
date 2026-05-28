@@ -22,6 +22,7 @@ type App struct {
 	theme       *ui.Theme
 	cpuCalc     *collectors.CPUCalculator
 	procCalc    *collectors.ProcessCollector
+	diskIO      *collectors.DiskIOCollector
 	pingTargets []collectors.PingTarget
 	docker      *collectors.DockerCollector
 }
@@ -46,6 +47,7 @@ func NewApp() *App {
 			{Label: "Google DNS", Host: "8.8.8.8"},
 			{Label: "Cloudflare", Host: "1.1.1.1"},
 		},
+		diskIO: collectors.NewDiskIOCollector(),
 		docker: dockerCollector,
 	}
 }
@@ -115,6 +117,27 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.state.PingError = perr2.Error()
 			} else {
 				a.state.PingError = ""
+			}
+
+			mounts, devices, loopCount, serr := collectors.CollectStorageSummary(4)
+			a.state.StorageMounts = mounts
+			a.state.StorageDeviceEntries = devices
+			a.state.StorageLoopCount = loopCount
+			if serr != nil {
+				a.state.StorageError = serr.Error()
+			} else {
+				a.state.StorageError = ""
+			}
+
+			readKB, writeKB, ioErr := a.diskIO.CollectIOSpeeds()
+			a.state.StorageIOReadKB = readKB
+			a.state.StorageIOWriteKB = writeKB
+			if ioErr != nil {
+				if a.state.StorageError != "" {
+					a.state.StorageError += "; " + ioErr.Error()
+				} else {
+					a.state.StorageError = ioErr.Error()
+				}
 			}
 
 			a.collectDockerSnapshot()
@@ -275,6 +298,9 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "p":
 		a.state.TogglePause()
 		return a, nil
+	case "s":
+		a.state.StorageListView = !a.state.StorageListView
+		return a, nil
 
 	// F-keys for modals
 	case "f1":
@@ -318,9 +344,6 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "tab":
 		// Cycle focus between panels
-		return a, nil
-	case "/":
-		// Search (Phase 5+)
 		return a, nil
 	case "?":
 		// Help (Phase 7+)
