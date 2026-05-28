@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,18 +39,28 @@ func NewApp() *App {
 	theme := ui.GetTheme(config.General.Theme)
 	dockerCollector, _ := collectors.NewDockerCollector()
 
+	// Try to load ping targets from config file, fall back to defaults
+	pingTargets := collectors.DefaultPingTargets()
+	if home, err := os.UserHomeDir(); err == nil {
+		path := filepath.Join(home, ".config", "tshoot", "ping_targets.toml")
+		if targets, err := collectors.LoadPingTargetsFromFile(path); err == nil && len(targets) > 0 {
+			pingTargets = make([]collectors.PingTarget, 0, len(targets))
+			for _, t := range targets {
+				pingTargets = append(pingTargets, collectors.PingTarget{Label: t.Label, Host: t.Host})
+			}
+		}
+	}
+	pingTargets = collectors.EnsureDefaultPingTargets(pingTargets)
+
 	return &App{
-		state:    state,
-		config:   config,
-		theme:    theme,
-		cpuCalc:  &collectors.CPUCalculator{},
-		procCalc: collectors.NewProcessCollector(),
-		pingTargets: []collectors.PingTarget{
-			{Label: "Google DNS", Host: "8.8.8.8"},
-			{Label: "Cloudflare", Host: "1.1.1.1"},
-		},
-		diskIO: collectors.NewDiskIOCollector(),
-		docker: dockerCollector,
+		state:       state,
+		config:      config,
+		theme:       theme,
+		cpuCalc:     &collectors.CPUCalculator{},
+		procCalc:    collectors.NewProcessCollector(),
+		pingTargets: pingTargets,
+		diskIO:      collectors.NewDiskIOCollector(),
+		docker:      dockerCollector,
 	}
 }
 
@@ -257,7 +269,8 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := strings.ToLower(strings.TrimSpace(msg.String()))
 
 	// Global Back key: always return to dashboard from sub-modes.
-	if isBackKey(msg, key) {
+	// Ignore global back when inline editing in the ping modal to allow typing 'b'.
+	if !a.state.PingEditing && isBackKey(msg, key) {
 		switch a.state.Mode {
 		case models.ModeModal:
 			a.state.CloseModal()
@@ -275,6 +288,11 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return a, cmd
 			}
 		}
+		if a.state.ActiveModal == models.ModalPing {
+			if handled, cmd := a.handlePingModalKey(msg, key); handled {
+				return a, cmd
+			}
+		}
 		if isEscapeKey(msg, key) {
 			a.state.CloseModal()
 			return a, tea.ClearScreen
@@ -283,7 +301,7 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.state.CloseModal()
 			return a, tea.ClearScreen
 		}
-		if key == "q" {
+		if key == "q" && !a.state.PingEditing {
 			a.state.CloseModal()
 			return a, tea.ClearScreen
 		}
@@ -292,6 +310,9 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key {
 	// Quit
 	case "q":
+		if a.state.PingEditing {
+			return a, nil
+		}
 		return a, tea.Quit
 
 	// Pause/Resume
@@ -413,6 +434,174 @@ func (a *App) handleDockerModalKey(msg tea.KeyMsg, key string) (bool, tea.Cmd) {
 	return false, nil
 }
 
+func (a *App) handlePingModalKey(msg tea.KeyMsg, key string) (bool, tea.Cmd) {
+	// Load path helper
+	getPath := func() string {
+		if h, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(h, ".config", "tshoot", "ping_targets.toml")
+		}
+		return "./ping_targets.toml"
+	}
+
+	// If inline-editing active, handle character input and editing keys
+	if a.state.PingEditing {
+		// typing characters
+		if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+			ch := msg.Runes[0]
+			if a.state.PingEditField == 0 {
+				a.state.PingEditLabel += string(ch)
+			} else {
+				a.state.PingEditHost += string(ch)
+			}
+			return true, nil
+		}
+		// handle control keys
+		if msg.Type == tea.KeyBackspace || key == "backspace" || key == "delete" {
+			if a.state.PingEditField == 0 {
+				a.state.PingEditLabel = trimLastRune(a.state.PingEditLabel)
+			} else {
+				a.state.PingEditHost = trimLastRune(a.state.PingEditHost)
+			}
+			return true, nil
+		}
+		if key == "tab" {
+			a.state.PingEditField = 1 - a.state.PingEditField
+			return true, nil
+		}
+		if msg.Type == tea.KeyEnter || key == "enter" {
+			// persist target
+			path := getPath()
+			var targets []collectors.PingTarget
+			if t, err := collectors.LoadPingTargetsFromFile(path); err == nil {
+				targets = t
+			} else {
+				targets = a.pingTargets
+			}
+			if a.state.PingEditIndex >= 0 && a.state.PingEditIndex < len(targets) {
+				targets[a.state.PingEditIndex] = collectors.PingTarget{Label: a.state.PingEditLabel, Host: a.state.PingEditHost}
+			} else {
+				targets = append(targets, collectors.PingTarget{Label: a.state.PingEditLabel, Host: a.state.PingEditHost})
+			}
+			targets = collectors.EnsureDefaultPingTargets(targets)
+			_ = collectors.SavePingTargetsToFile(path, targets)
+			// reload into memory
+			pts := make([]collectors.PingTarget, 0, len(targets))
+			for _, t := range targets {
+				pts = append(pts, collectors.PingTarget{Label: t.Label, Host: t.Host})
+			}
+			a.pingTargets = pts
+			a.state.PingEditing = false
+			a.state.PingEditIndex = -1
+			a.state.PingEditLabel = ""
+			a.state.PingEditHost = ""
+			a.state.PingEditField = 0
+			return true, tea.ClearScreen
+		}
+		if msg.Type == tea.KeyEsc || key == "esc" {
+			// cancel
+			a.state.PingEditing = false
+			a.state.PingEditIndex = -1
+			a.state.PingEditLabel = ""
+			a.state.PingEditHost = ""
+			a.state.PingEditField = 0
+			return true, tea.ClearScreen
+		}
+		return true, nil
+	}
+
+	// navigation
+	switch key {
+	case "up", "k":
+		if a.state.PingModalIndex > 0 {
+			a.state.PingModalIndex--
+		}
+		return true, tea.ClearScreen
+	case "down", "j":
+		if a.state.PingModalIndex < len(a.pingTargets)-1 {
+			a.state.PingModalIndex++
+		}
+		return true, tea.ClearScreen
+	case "+", "=", "a":
+		// start inline add flow without removing defaults
+		a.state.PingEditing = true
+		a.state.PingEditIndex = -1
+		a.state.PingEditLabel = ""
+		a.state.PingEditHost = ""
+		a.state.PingEditField = 0
+		return true, tea.ClearScreen
+	case "-", "d":
+		// remove selected from existing targets
+		path := getPath()
+		targets, err := collectors.LoadPingTargetsFromFile(path)
+		if err != nil {
+			targets = a.pingTargets
+		}
+		if len(targets) == 0 {
+			return true, tea.ClearScreen
+		}
+		idx := a.state.PingModalIndex
+		if idx < 0 || idx >= len(targets) {
+			idx = 0
+		}
+		if collectors.IsDefaultPingTarget(targets[idx]) {
+			return true, tea.ClearScreen
+		}
+		targets = append(targets[:idx], targets[idx+1:]...)
+		targets = collectors.EnsureDefaultPingTargets(targets)
+		_ = collectors.SavePingTargetsToFile(path, targets)
+		// reload
+		pts := make([]collectors.PingTarget, 0, len(targets))
+		for _, t := range targets {
+			pts = append(pts, collectors.PingTarget{Label: t.Label, Host: t.Host})
+		}
+		a.pingTargets = pts
+		if a.state.PingModalIndex >= len(a.pingTargets) && a.state.PingModalIndex > 0 {
+			a.state.PingModalIndex--
+		}
+		return true, tea.ClearScreen
+	case "enter":
+		if len(a.pingTargets) > 0 {
+			idx := a.state.PingModalIndex
+			if idx < 0 {
+				idx = 0
+			}
+			if idx >= len(a.pingTargets) {
+				idx = len(a.pingTargets) - 1
+			}
+			a.state.PingEditing = true
+			a.state.PingEditIndex = idx
+			a.state.PingEditLabel = a.pingTargets[idx].Label
+			a.state.PingEditHost = a.pingTargets[idx].Host
+			a.state.PingEditField = 0
+		}
+		return true, tea.ClearScreen
+	case "e":
+		// open file in $EDITOR
+		path := getPath()
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			editor = "vi"
+		}
+		cmd := exec.Command(editor, path)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		_ = cmd.Run()
+		// reload and preserve defaults
+		if targets, err := collectors.LoadPingTargetsFromFile(path); err == nil {
+			targets = collectors.EnsureDefaultPingTargets(targets)
+			pts := make([]collectors.PingTarget, 0, len(targets))
+			for _, t := range targets {
+				pts = append(pts, collectors.PingTarget{Label: t.Label, Host: t.Host})
+			}
+			a.pingTargets = pts
+		}
+		return true, tea.ClearScreen
+	}
+
+	return false, nil
+}
+
 func isEscapeKey(msg tea.KeyMsg, key string) bool {
 	if msg.Type == tea.KeyEsc {
 		return true
@@ -439,6 +628,17 @@ func isBackKey(msg tea.KeyMsg, key string) bool {
 	}
 
 	return false
+}
+
+func trimLastRune(s string) string {
+	if s == "" {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) <= 1 {
+		return ""
+	}
+	return string(runes[:len(runes)-1])
 }
 
 // renderPauseOverlay renders a pause indicator overlay

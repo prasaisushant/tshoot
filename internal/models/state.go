@@ -71,8 +71,15 @@ type AppState struct {
 	SelectedContainerID string
 	SelectedContainer   string
 	DockerModalIndex    int
-	ContainerLogs       []string
-	DockerError         string
+	PingModalIndex      int
+	// Inline edit state for ping modal
+	PingEditing   bool
+	PingEditIndex int
+	PingEditLabel string
+	PingEditHost  string
+	PingEditField int // 0=label,1=host
+	ContainerLogs []string
+	DockerError   string
 }
 
 // SystemMetrics contains live values shown in dashboard panels.
@@ -165,6 +172,12 @@ func NewAppState(width, height int) *AppState {
 		PingResults:          []PingStat{},
 		DockerContainers:     []DockerContainerStat{},
 		DockerModalIndex:     0,
+		PingModalIndex:       0,
+		PingEditing:          false,
+		PingEditIndex:        -1,
+		PingEditLabel:        "",
+		PingEditHost:         "",
+		PingEditField:        0,
 		ContainerLogs:        []string{},
 	}
 }

@@ -192,7 +192,7 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 	}
 
 	pingPanel := &Panel{
-		Title:   "Ping Status",
+		Title:   "Ping And DNS Status",
 		Width:   col4Widths[2],
 		Height:  row1Height,
 		Content: formatPingContent(state.PingResults, state.PingError),
@@ -625,7 +625,7 @@ func RenderModal(state *models.AppState, theme *Theme) string {
 	case models.ModalDocker:
 		return renderDockerModal(state, theme, state.Width, state.Height)
 	case models.ModalPing:
-		return renderPingModal(theme, state.Width, state.Height)
+		return renderPingModal(state, theme, state.Width, state.Height)
 	case models.ModalFocus:
 		return renderFocusModal(theme, state.Width, state.Height)
 	case models.ModalTheme:
@@ -673,12 +673,62 @@ func renderDockerModal(state *models.AppState, theme *Theme, width, height int) 
 	return centerModal(theme, "Docker Containers", lines, width, height)
 }
 
-func renderPingModal(theme *Theme, width, height int) string {
-	return centerModal(theme, "Ping Targets", []string{
-		"8.8.8.8        ✓ 12ms",
-		"1.1.1.1        ✓  8ms",
-		"Internal API   ✗ DOWN",
-	}, width, height)
+func renderPingModal(state *models.AppState, theme *Theme, width, height int) string {
+	lines := make([]string, 0, len(state.PingResults)+8)
+	// Source line (user-facing; keep tilde)
+	lines = append(lines, "Source: ~/.config/tshoot/ping_targets.toml")
+	lines = append(lines, strings.Repeat("─", max(8, width-8)))
+	// If inline editing, show input fields first
+	if state.PingEditing {
+		if state.PingEditIndex >= 0 {
+			lines = append(lines, "Editing selected target")
+		} else {
+			lines = append(lines, "Adding new target")
+		}
+		label := state.PingEditLabel
+		host := state.PingEditHost
+		if state.PingEditField == 0 {
+			label += "_"
+		} else {
+			host += "_"
+		}
+		lines = append(lines, fmt.Sprintf("Label: %s", truncateToWidth(label, width-10)))
+		lines = append(lines, fmt.Sprintf("Host : %s", truncateToWidth(host, width-10)))
+		lines = append(lines, "")
+		lines = append(lines, "Enter: Save   Esc: Cancel   Tab: Next field")
+		lines = append(lines, "")
+	}
+
+	// Header
+	lines = append(lines, fmt.Sprintf("%-18s %-20s %7s", "Label", "Host", "Status"))
+	lines = append(lines, strings.Repeat("─", max(8, width-8)))
+
+	if len(state.PingResults) == 0 {
+		lines = append(lines, "No ping targets")
+	} else {
+		for i, p := range state.PingResults {
+			prefix := " "
+			if i == state.PingModalIndex {
+				prefix = "●"
+			} else {
+				prefix = " "
+			}
+			status := ""
+			if p.Up {
+				status = fmt.Sprintf("✓ %4.0fms", p.LatencyMS)
+			} else {
+				status = "✗ DOWN"
+			}
+			label := truncateToWidth(p.Label, 18)
+			host := truncateToWidth(p.Host, 20)
+			lines = append(lines, fmt.Sprintf("%s %-18s %-20s %7s", prefix, label, host, status))
+		}
+	}
+
+	// Spacer and action buttons
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("[ + / = / a Add ]  [ - / d Remove ]  [ Enter Edit ]  [ e Edit File ]"))
+	return centerModal(theme, "📡  Ping Targets", lines, width, height)
 }
 
 func renderThemeModal(theme *Theme, width, height int) string {
