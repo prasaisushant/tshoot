@@ -21,6 +21,7 @@ type App struct {
 	theme   *ui.Theme
 	cpuCalc *collectors.CPUCalculator
 	procCalc *collectors.ProcessCollector
+	pingTargets []collectors.PingTarget
 }
 
 type metricsTickMsg time.Time
@@ -38,6 +39,10 @@ func NewApp() *App {
 		theme:   theme,
 		cpuCalc: &collectors.CPUCalculator{},
 		procCalc: collectors.NewProcessCollector(),
+		pingTargets: []collectors.PingTarget{
+			{Label: "Google DNS", Host: "8.8.8.8"},
+			{Label: "Cloudflare", Host: "1.1.1.1"},
+		},
 	}
 }
 
@@ -98,6 +103,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.state.NetworkError = nerr2.Error()
 			default:
 				a.state.NetworkError = ""
+			}
+
+			pings, perr2 := collectors.CollectPingStatuses(a.pingTargets, 1200*time.Millisecond)
+			a.state.PingResults = pings
+			if perr2 != nil {
+				a.state.PingError = perr2.Error()
+			} else {
+				a.state.PingError = ""
 			}
 		}
 		return a, scheduleMetricsTick()

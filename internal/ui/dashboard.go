@@ -196,11 +196,7 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 		Title:  "Ping Status",
 		Width:  col4Widths[2],
 		Height: row1Height,
-		Content: []string{
-			"8.8.8.8     ✓ 12ms",
-			"1.1.1.1     ✓  8ms",
-			"Internal    ✗ DOWN",
-		},
+		Content: formatPingContent(state.PingResults, state.PingError),
 	}
 
 	uptimePanel := &Panel{
@@ -442,6 +438,33 @@ func formatIPRouteContent(lines []string, errSummary string) []string {
 			return []string{"Data: limited (" + errSummary + ")"}
 		}
 		return []string{"No route data"}
+	}
+	return lines
+}
+
+func formatPingContent(results []models.PingStat, errSummary string) []string {
+	if len(results) == 0 {
+		if errSummary != "" {
+			return []string{"Data: limited (" + errSummary + ")"}
+		}
+		return []string{"No ping targets"}
+	}
+
+	lines := make([]string, 0, len(results))
+	for _, r := range results {
+		label := r.Label
+		if label == "" {
+			label = r.Host
+		}
+		if r.Up {
+			lines = append(lines, fmt.Sprintf("%-12s \u2713 %.1fms", label, r.LatencyMS))
+		} else {
+			lines = append(lines, fmt.Sprintf("%-12s \u2717 DOWN", label))
+		}
+	}
+
+	if errSummary != "" {
+		lines = append(lines, "Data: limited")
 	}
 	return lines
 }

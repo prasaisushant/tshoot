@@ -52,6 +52,10 @@ type AppState struct {
 	OpenPorts    []PortStat
 	IPRouteLines []string
 	NetworkError string
+
+	// Ping metrics (Phase 4+)
+	PingResults []PingStat
+	PingError   string
 }
 
 // SystemMetrics contains live values shown in dashboard panels.
@@ -87,6 +91,14 @@ type PortStat struct {
 	Process string
 }
 
+// PingStat represents status/latency for one target.
+type PingStat struct {
+	Label     string
+	Host      string
+	Up        bool
+	LatencyMS float64
+}
+
 // NewAppState creates a new app state with sensible defaults
 func NewAppState(width, height int) *AppState {
 	return &AppState{
@@ -103,6 +115,7 @@ func NewAppState(width, height int) *AppState {
 		TopMemProcesses: []ProcessStat{},
 		OpenPorts:       []PortStat{},
 		IPRouteLines:    []string{},
+		PingResults:     []PingStat{},
 	}
 }
 
