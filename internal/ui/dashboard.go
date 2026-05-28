@@ -154,14 +154,11 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 
 	usableWidth := state.Width
 	usableHeight := state.Height - 1 // reserve last line for function key bar
-	gap := 1
 
-	rowHeights := splitDimension(usableHeight-(2*gap), 3)
+	rowHeights := splitDimension(usableHeight, 3)
 	row1Height, row2Height, row3Height := rowHeights[0], rowHeights[1], rowHeights[2]
-	col4Widths := splitDimension(usableWidth-(3*gap), 4)
-	col3Widths := splitDimension(usableWidth-(2*gap), 3)
-
-	// Row 1: CPU/Mem | Storage | Ping | Uptime (4 columns)
+	col4Widths := splitDimension(usableWidth-3, 4) // 3 spaces between 4 panels
+	col3Widths := splitDimension(usableWidth-2, 3) // 2 spaces between 3 panels
 	cpuBar := renderPercentBar(state.Metrics.CPUPercent, 10)
 	memBar := renderPercentBar(state.Metrics.MemoryPercent, 10)
 	swapLine := fmt.Sprintf("Swap:  %.0f%% (%d/%dMB)", state.Metrics.SwapPercent, state.Metrics.SwapUsedMB, state.Metrics.SwapTotalMB)
@@ -285,9 +282,7 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 	// Combine all rows vertically
 	dashboard := lipgloss.JoinVertical(lipgloss.Left,
 		row1,
-		"",
 		row2,
-		"",
 		row3,
 	)
 
