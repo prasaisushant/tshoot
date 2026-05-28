@@ -61,6 +61,7 @@ type AppState struct {
 	DockerContainers    []DockerContainerStat
 	SelectedContainerID string
 	SelectedContainer   string
+	DockerModalIndex    int
 	ContainerLogs       []string
 	DockerError         string
 }
@@ -132,6 +133,7 @@ func NewAppState(width, height int) *AppState {
 		IPRouteLines:    []string{},
 		PingResults:     []PingStat{},
 		DockerContainers: []DockerContainerStat{},
+		DockerModalIndex: 0,
 		ContainerLogs:    []string{},
 	}
 }

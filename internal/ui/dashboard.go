@@ -508,7 +508,7 @@ func RenderModal(state *models.AppState, theme *Theme) string {
 	case models.ModalRefreshRate:
 		return renderRefreshRateModal(theme, state.Width, state.Height)
 	case models.ModalDocker:
-		return renderDockerModal(theme, state.Width, state.Height)
+		return renderDockerModal(state, theme, state.Width, state.Height)
 	case models.ModalPing:
 		return renderPingModal(theme, state.Width, state.Height)
 	case models.ModalFocus:
@@ -534,12 +534,28 @@ func renderRefreshRateModal(theme *Theme, width, height int) string {
 	}, width, height)
 }
 
-func renderDockerModal(theme *Theme, width, height int) string {
-	return centerModal(theme, "Docker Containers", []string{
-		"● nginx-proxy    Up 3 days",
-		"● postgres-db    Up 12h",
-		"○ redis-cache    Exited(0)",
-	}, width, height)
+func renderDockerModal(state *models.AppState, theme *Theme, width, height int) string {
+	lines := make([]string, 0, len(state.DockerContainers)+3)
+	lines = append(lines, "Use ↑/↓ (or j/k), Enter to select")
+	lines = append(lines, "")
+
+	if len(state.DockerContainers) == 0 {
+		if state.DockerError != "" {
+			lines = append(lines, "Docker unavailable: "+state.DockerError)
+		} else {
+			lines = append(lines, "No containers")
+		}
+		return centerModal(theme, "Docker Containers", lines, width, height)
+	}
+
+	for i, c := range state.DockerContainers {
+		prefix := "○"
+		if i == state.DockerModalIndex {
+			prefix = "●"
+		}
+		lines = append(lines, fmt.Sprintf("%s %-14s %s", prefix, c.Name, c.Status))
+	}
+	return centerModal(theme, "Docker Containers", lines, width, height)
 }
 
 func renderPingModal(theme *Theme, width, height int) string {

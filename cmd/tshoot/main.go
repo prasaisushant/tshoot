@@ -247,11 +247,16 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Modal-first behavior: allow users to reliably go back.
 	if a.state.Mode == models.ModeModal {
+		if a.state.ActiveModal == models.ModalDocker {
+			if handled, cmd := a.handleDockerModalKey(msg, key); handled {
+				return a, cmd
+			}
+		}
 		if isEscapeKey(msg, key) {
 			a.state.CloseModal()
 			return a, tea.ClearScreen
 		}
-		if msg.Type == tea.KeyEnter {
+		if msg.Type == tea.KeyEnter && a.state.ActiveModal != models.ModalDocker {
 			a.state.CloseModal()
 			return a, tea.ClearScreen
 		}
@@ -277,6 +282,7 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, tea.ClearScreen
 	case "f2":
 		a.toggleModal(models.ModalDocker)
+		a.syncDockerModalSelection()
 		return a, tea.ClearScreen
 	case "f3":
 		a.toggleModal(models.ModalPing)
@@ -330,6 +336,58 @@ func (a *App) toggleModal(modalType models.ModalType) {
 		return
 	}
 	a.state.OpenModal(modalType)
+}
+
+func (a *App) syncDockerModalSelection() {
+	if len(a.state.DockerContainers) == 0 {
+		a.state.DockerModalIndex = 0
+		return
+	}
+
+	a.state.DockerModalIndex = 0
+	for i, c := range a.state.DockerContainers {
+		if c.ID == a.state.SelectedContainerID {
+			a.state.DockerModalIndex = i
+			return
+		}
+	}
+}
+
+func (a *App) handleDockerModalKey(msg tea.KeyMsg, key string) (bool, tea.Cmd) {
+	if len(a.state.DockerContainers) == 0 {
+		return false, nil
+	}
+
+	switch key {
+	case "up", "k":
+		if a.state.DockerModalIndex > 0 {
+			a.state.DockerModalIndex--
+		}
+		return true, tea.ClearScreen
+	case "down", "j":
+		if a.state.DockerModalIndex < len(a.state.DockerContainers)-1 {
+			a.state.DockerModalIndex++
+		}
+		return true, tea.ClearScreen
+	}
+
+	if msg.Type == tea.KeyEnter {
+		idx := a.state.DockerModalIndex
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= len(a.state.DockerContainers) {
+			idx = len(a.state.DockerContainers) - 1
+		}
+		selected := a.state.DockerContainers[idx]
+		a.state.SelectedContainerID = selected.ID
+		a.state.SelectedContainer = selected.Name
+		a.state.CloseModal()
+		a.collectDockerSnapshot()
+		return true, tea.ClearScreen
+	}
+
+	return false, nil
 }
 
 func isEscapeKey(msg tea.KeyMsg, key string) bool {
