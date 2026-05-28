@@ -380,9 +380,11 @@ func formatTopCPUContent(processes []models.ProcessStat, errSummary string) []st
 		return []string{"No process data"}
 	}
 
-	lines := make([]string, 0, len(processes))
+	lines := make([]string, 0, len(processes)+1)
+	lines = append(lines, fmt.Sprintf("%-14s %5s %6s", "PROCESS", "PID", "CPU"))
+	lines = append(lines, strings.Repeat("─", 28))
 	for _, p := range processes {
-		lines = append(lines, fmt.Sprintf("%-14s %5d %4.1f%%", p.Name, p.PID, p.CPUPercent))
+		lines = append(lines, fmt.Sprintf("%-14s %5d %5.1f%%", p.Name, p.PID, p.CPUPercent))
 	}
 	return lines
 }
@@ -395,9 +397,11 @@ func formatTopMemContent(processes []models.ProcessStat, errSummary string) []st
 		return []string{"No process data"}
 	}
 
-	lines := make([]string, 0, len(processes))
+	lines := make([]string, 0, len(processes)+1)
+	lines = append(lines, fmt.Sprintf("%-14s %5s %8s", "PROCESS", "PID", "MEM"))
+	lines = append(lines, strings.Repeat("─", 28))
 	for _, p := range processes {
-		lines = append(lines, fmt.Sprintf("%-14s %5d %4dMB", p.Name, p.PID, p.MemoryMB))
+		lines = append(lines, fmt.Sprintf("%-14s %5d %7dMB", p.Name, p.PID, p.MemoryMB))
 	}
 	return lines
 }
@@ -410,7 +414,9 @@ func formatPortsContent(ports []models.PortStat, errSummary string) []string {
 		return []string{"No listening ports"}
 	}
 
-	lines := make([]string, 0, len(ports))
+	lines := make([]string, 0, len(ports)+2)
+	lines = append(lines, fmt.Sprintf("%5s %-4s %-6s %s", "PORT", "PROTO", "PID", "PROCESS"))
+	lines = append(lines, strings.Repeat("─", 30))
 	for _, p := range ports {
 		pidText := "-"
 		if p.PID > 0 {
@@ -439,16 +445,18 @@ func formatPingContent(results []models.PingStat, errSummary string) []string {
 		return []string{"No ping targets"}
 	}
 
-	lines := make([]string, 0, len(results))
+	lines := make([]string, 0, len(results)+2)
+	lines = append(lines, fmt.Sprintf("%-14s %-8s %s", "LABEL", "STATUS", "LATENCY"))
+	lines = append(lines, strings.Repeat("─", 36))
 	for _, r := range results {
 		label := r.Label
 		if label == "" {
 			label = r.Host
 		}
 		if r.Up {
-			lines = append(lines, fmt.Sprintf("%-12s \u2713 %.1fms", label, r.LatencyMS))
+			lines = append(lines, fmt.Sprintf("%-14s %-8s %5.1fms", label, "UP", r.LatencyMS))
 		} else {
-			lines = append(lines, fmt.Sprintf("%-12s \u2717 DOWN", label))
+			lines = append(lines, fmt.Sprintf("%-14s %-8s %s", label, "DOWN", "-"))
 		}
 	}
 
@@ -468,7 +476,9 @@ func formatStorageContent(mounts []models.StorageMount, devices []models.Storage
 			return []string{"No device data"}
 		}
 
-		lines := make([]string, 0, len(devices)+3)
+		lines := make([]string, 0, len(devices)+4)
+		lines = append(lines, fmt.Sprintf("%-8s %-6s %s", "DEVICE", "TYPE", "SIZE"))
+		lines = append(lines, strings.Repeat("─", width-4))
 		for _, d := range devices {
 			lines = append(lines, formatDeviceLine(d, width))
 		}
@@ -491,7 +501,9 @@ func formatStorageContent(mounts []models.StorageMount, devices []models.Storage
 		return []string{"No mount data"}
 	}
 
-	lines := make([]string, 0, len(mounts)+3)
+	lines := make([]string, 0, len(mounts)+4)
+	lines = append(lines, fmt.Sprintf("%-20s %-6s %5s %8s", "MOUNT", "FSTYPE", "USE%", "SIZE"))
+	lines = append(lines, strings.Repeat("─", width-4))
 	for _, m := range mounts {
 		lines = append(lines, formatStorageLine(m, width))
 	}
@@ -584,7 +596,9 @@ func formatDockerContainersContent(containers []models.DockerContainerStat, errS
 		return []string{"No containers"}
 	}
 
-	lines := make([]string, 0, len(containers))
+	lines := make([]string, 0, len(containers)+2)
+	lines = append(lines, fmt.Sprintf("%-14s %s", "CONTAINER", "STATUS"))
+	lines = append(lines, strings.Repeat("─", 28))
 	for _, c := range containers {
 		status := c.Status
 		if lipgloss.Width(status) > 12 {
@@ -731,14 +745,6 @@ func renderPingModal(state *models.AppState, theme *Theme, width, height int) st
 	return centerModal(theme, "📡  Ping Targets", lines, width, height)
 }
 
-func renderThemeModal(theme *Theme, width, height int) string {
-	return centerModal(theme, "Theme", []string{
-		"● Dark",
-		"○ Light",
-		"○ High Contrast",
-	}, width, height)
-}
-
 func renderFocusModal(theme *Theme, width, height int) string {
 	return centerModal(theme, "Focus Panel (F4)", []string{
 		"Use arrows to select a panel",
@@ -748,28 +754,6 @@ func renderFocusModal(theme *Theme, width, height int) string {
 		"[ CPU ] [ Storage ] [ Ping ] [ System ]",
 		"[ Top CPU ] [ Ports ] [ IP/Routes ]",
 		"[ Top Mem ] [ Docker ] [ Logs ]",
-	}, width, height)
-}
-
-func renderAlertsModal(theme *Theme, width, height int) string {
-	return centerModal(theme, "Alert Thresholds", []string{
-		"CPU Warn:   80%",
-		"CPU Crit:   95%",
-		"Mem Warn:   80%",
-		"Disk Warn:  90%",
-		"",
-		"[Phase 1 placeholder]",
-	}, width, height)
-}
-
-func renderExportModal(theme *Theme, width, height int) string {
-	return centerModal(theme, "Export Snapshot", []string{
-		"Output format:",
-		"● .txt",
-		"○ .json",
-		"",
-		"Press Enter to export",
-		"[Phase 1 placeholder]",
 	}, width, height)
 }
 
