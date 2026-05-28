@@ -775,45 +775,49 @@ func renderExportModal(theme *Theme, width, height int) string {
 
 // centerModal is a helper to render a centered modal
 func centerModal(theme *Theme, title string, lines []string, width, height int) string {
-	modalWidth := width / 2
-	if modalWidth < 40 {
-		modalWidth = 40
+	modalWidth := width * 2 / 5
+	if modalWidth < 50 {
+		modalWidth = 50
 	}
-	if modalWidth > width-4 {
-		modalWidth = width - 4
-	}
-
-	modalHeight := len(lines) + 4
-	if modalHeight > height-4 {
-		modalHeight = height - 4
+	if modalWidth > width-6 {
+		modalWidth = width - 6
 	}
 
-	titleStyle := theme.TitleStyle()
-	style := theme.PanelStyle(modalWidth)
+	contentLines := make([]string, 0, len(lines)+1)
+	titleLine := theme.TitleStyle().Render(title)
+	contentLines = append(contentLines, titleLine)
+	contentLines = append(contentLines, strings.Repeat("─", modalWidth-4))
 
-	content := titleStyle.Render(title) + "\n"
+	lineStyle := lipgloss.NewStyle().Foreground(theme.TextFg).Width(modalWidth - 4)
 	for _, line := range lines {
-		if len(line) > modalWidth-4 {
-			line = line[:modalWidth-4]
-		}
-		content += line + "\n"
+		truncated := truncateToWidth(line, modalWidth-4)
+		contentLines = append(contentLines, lineStyle.Render(truncated))
 	}
 
-	modalBox := style.Render(content)
+	content := strings.Join(contentLines, "\n")
+	boxStyle := lipgloss.NewStyle().
+		Border(theme.PanelBorder).
+		BorderForeground(theme.PanelBorderFg).
+		Background(theme.PanelBg).
+		Foreground(theme.TextFg).
+		Padding(1, 2).
+		Width(modalWidth)
 
-	// Center the modal
-	totalWidth := width
-	totalHeight := height
-	boxLines := strings.Split(modalBox, "\n")
-	centeredLines := make([]string, 0)
+	modalBox := boxStyle.Render(content)
 
-	topPadding := (totalHeight - len(boxLines)) / 2
+	boxLines := strings.Split(strings.TrimRight(modalBox, "\n"), "\n")
+	topPadding := (height - len(boxLines)) / 2
+	if topPadding < 0 {
+		topPadding = 0
+	}
+
+	centeredLines := make([]string, 0, topPadding+len(boxLines))
 	for i := 0; i < topPadding; i++ {
 		centeredLines = append(centeredLines, "")
 	}
 
 	for _, line := range boxLines {
-		leftPadding := (totalWidth - len(line)) / 2
+		leftPadding := (width - lipgloss.Width(line)) / 2
 		if leftPadding < 0 {
 			leftPadding = 0
 		}

@@ -248,9 +248,7 @@ func (a *App) View() string {
 	case models.ModeNormal:
 		return ui.RenderDashboard(a.state, a.theme)
 	case models.ModeModal:
-		dashboard := ui.RenderDashboard(a.state, a.theme)
-		modal := ui.RenderModal(a.state, a.theme)
-		return lipgloss.JoinVertical(lipgloss.Left, dashboard, modal)
+		return ui.RenderModal(a.state, a.theme)
 	case models.ModePaused:
 		pauseOverlay := a.renderPauseOverlay()
 		dashboard := ui.RenderDashboard(a.state, a.theme)
@@ -654,8 +652,62 @@ func (a *App) renderPauseOverlay() string {
 
 // overlayText overlays one text on top of another (center)
 func (a *App) overlayText(background, overlay string) string {
-	// For now, just append the overlay - proper overlay logic in Phase 7
-	return strings.TrimRight(background, "\n") + "\n" + overlay
+	bgLines := strings.Split(strings.TrimRight(background, "\n"), "\n")
+	overlayLines := strings.Split(strings.TrimRight(overlay, "\n"), "\n")
+	if len(bgLines) == 0 {
+		return overlay
+	}
+
+	bgWidth := 0
+	for _, line := range bgLines {
+		w := lipgloss.Width(line)
+		if w > bgWidth {
+			bgWidth = w
+		}
+	}
+	overlayWidth := 0
+	for _, line := range overlayLines {
+		w := lipgloss.Width(line)
+		if w > overlayWidth {
+			overlayWidth = w
+		}
+	}
+
+	startRow := 0
+	if len(bgLines) > len(overlayLines) {
+		startRow = (len(bgLines) - len(overlayLines)) / 2
+	}
+	startCol := 0
+	if bgWidth > overlayWidth {
+		startCol = (bgWidth - overlayWidth) / 2
+	}
+
+	merged := make([]string, len(bgLines))
+	copy(merged, bgLines)
+
+	for i, line := range overlayLines {
+		row := startRow + i
+		if row < 0 || row >= len(merged) {
+			continue
+		}
+		base := merged[row]
+		if lipgloss.Width(base) < startCol {
+			base += strings.Repeat(" ", startCol-lipgloss.Width(base))
+		}
+		baseRunes := []rune(base)
+		if len(baseRunes) < startCol {
+			baseRunes = append(baseRunes, []rune(strings.Repeat(" ", startCol-len(baseRunes)))...)
+		}
+		prefix := string(baseRunes[:startCol])
+		tail := ""
+		end := startCol + len([]rune(line))
+		if len(baseRunes) > end {
+			tail = string(baseRunes[end:])
+		}
+		merged[row] = prefix + line + tail
+	}
+
+	return strings.Join(merged, "\n")
 }
 
 // main is the entry point
