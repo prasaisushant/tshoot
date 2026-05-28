@@ -6,19 +6,19 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/tshoot/internal/models"
+	"github.com/prasaisushant/tshoot/internal/models"
 )
 
 // Theme holds color and style definitions
 type Theme struct {
-	Name           string
-	PanelBorder    lipgloss.Border
-	PanelBorderFg  lipgloss.Color
-	PanelBg        lipgloss.Color
-	TextFg         lipgloss.Color
-	AccentFg       lipgloss.Color
-	WarningFg      lipgloss.Color
-	CriticalFg     lipgloss.Color
+	Name          string
+	PanelBorder   lipgloss.Border
+	PanelBorderFg lipgloss.Color
+	PanelBg       lipgloss.Color
+	TextFg        lipgloss.Color
+	AccentFg      lipgloss.Color
+	WarningFg     lipgloss.Color
+	CriticalFg    lipgloss.Color
 }
 
 // GetTheme returns the theme based on the name
@@ -69,11 +69,11 @@ func (t *Theme) TitleStyle() lipgloss.Style {
 
 // Panel represents a dashboard panel with title and content
 type Panel struct {
-	Title      string
-	Content    []string
-	Width      int
-	Height     int
-	IsFocused  bool
+	Title     string
+	Content   []string
+	Width     int
+	Height    int
+	IsFocused bool
 }
 
 // RenderPanel renders a panel with the given theme
@@ -193,9 +193,9 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 	}
 
 	pingPanel := &Panel{
-		Title:  "Ping Status",
-		Width:  col4Widths[2],
-		Height: row1Height,
+		Title:   "Ping Status",
+		Width:   col4Widths[2],
+		Height:  row1Height,
 		Content: formatPingContent(state.PingResults, state.PingError),
 	}
 
@@ -224,23 +224,23 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 
 	// Row 2: Top CPU | Ports | IP/Routes (3 columns)
 	topCPUPanel := &Panel{
-		Title:  "Top CPU",
-		Width:  col3Widths[0],
-		Height: row2Height,
+		Title:   "Top CPU",
+		Width:   col3Widths[0],
+		Height:  row2Height,
 		Content: formatTopCPUContent(state.TopCPUProcesses, state.ProcessError),
 	}
 
 	portsPanel := &Panel{
-		Title:  "Open Ports",
-		Width:  col3Widths[1],
-		Height: row2Height,
+		Title:   "Open Ports",
+		Width:   col3Widths[1],
+		Height:  row2Height,
 		Content: formatPortsContent(state.OpenPorts, state.NetworkError),
 	}
 
 	ipRoutesPanel := &Panel{
-		Title:  "IP / Routes",
-		Width:  col3Widths[2],
-		Height: row2Height,
+		Title:   "IP / Routes",
+		Width:   col3Widths[2],
+		Height:  row2Height,
 		Content: formatIPRouteContent(state.IPRouteLines, state.NetworkError),
 	}
 
@@ -254,23 +254,23 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 
 	// Row 3: Top Mem | Docker | Container Logs (3 columns)
 	topMemPanel := &Panel{
-		Title:  "Top Mem",
-		Width:  col3Widths[0],
-		Height: row3Height,
+		Title:   "Top Mem",
+		Width:   col3Widths[0],
+		Height:  row3Height,
 		Content: formatTopMemContent(state.TopMemProcesses, state.ProcessError),
 	}
 
 	dockerPanel := &Panel{
-		Title:  "Docker Containers",
-		Width:  col3Widths[1],
-		Height: row3Height,
+		Title:   "Docker Containers",
+		Width:   col3Widths[1],
+		Height:  row3Height,
 		Content: formatDockerContainersContent(state.DockerContainers, state.DockerError),
 	}
 
 	logsPanel := &Panel{
-		Title:  "Container Logs",
-		Width:  col3Widths[2],
-		Height: row3Height,
+		Title:   "Container Logs",
+		Width:   col3Widths[2],
+		Height:  row3Height,
 		Content: formatContainerLogsContent(state.SelectedContainer, state.ContainerLogs, state.DockerError),
 	}
 

@@ -35,9 +35,9 @@ type AlertsConfig struct {
 
 // DockerConfig holds Docker-specific settings
 type DockerConfig struct {
-	Socket       string `toml:"socket"`
-	DefaultTail  int    `toml:"default_tail"`
-	Follow       bool   `toml:"follow"`
+	Socket      string `toml:"socket"`
+	DefaultTail int    `toml:"default_tail"`
+	Follow      bool   `toml:"follow"`
 }
 
 // LoadConfig loads the configuration from file, or returns hardcoded defaults.

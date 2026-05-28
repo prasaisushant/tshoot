@@ -1,4 +1,4 @@
-module github.com/user/tshoot
+module github.com/prasaisushant/tshoot
 
 go 1.25.0
 

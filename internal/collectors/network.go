@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/user/tshoot/internal/models"
+	"github.com/prasaisushant/tshoot/internal/models"
 )
 
 // CollectOpenPorts returns listening tcp/tcp6 ports and process mappings.

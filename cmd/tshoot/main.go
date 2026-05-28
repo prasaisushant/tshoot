@@ -10,20 +10,20 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/tshoot/internal/collectors"
-	"github.com/user/tshoot/internal/models"
-	"github.com/user/tshoot/internal/ui"
+	"github.com/prasaisushant/tshoot/internal/collectors"
+	"github.com/prasaisushant/tshoot/internal/models"
+	"github.com/prasaisushant/tshoot/internal/ui"
 )
 
 // App is the main application model
 type App struct {
-	state   *models.AppState
-	config  *Config
-	theme   *ui.Theme
-	cpuCalc *collectors.CPUCalculator
-	procCalc *collectors.ProcessCollector
+	state       *models.AppState
+	config      *Config
+	theme       *ui.Theme
+	cpuCalc     *collectors.CPUCalculator
+	procCalc    *collectors.ProcessCollector
 	pingTargets []collectors.PingTarget
-	docker *collectors.DockerCollector
+	docker      *collectors.DockerCollector
 }
 
 type metricsTickMsg time.Time
@@ -37,10 +37,10 @@ func NewApp() *App {
 	dockerCollector, _ := collectors.NewDockerCollector()
 
 	return &App{
-		state:   state,
-		config:  config,
-		theme:   theme,
-		cpuCalc: &collectors.CPUCalculator{},
+		state:    state,
+		config:   config,
+		theme:    theme,
+		cpuCalc:  &collectors.CPUCalculator{},
 		procCalc: collectors.NewProcessCollector(),
 		pingTargets: []collectors.PingTarget{
 			{Label: "Google DNS", Host: "8.8.8.8"},

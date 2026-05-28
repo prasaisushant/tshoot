@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/user/tshoot/internal/models"
+	"github.com/prasaisushant/tshoot/internal/models"
 )
 
 // PingTarget is one configured ping endpoint.

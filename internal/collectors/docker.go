@@ -11,7 +11,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
-	"github.com/user/tshoot/internal/models"
+	"github.com/prasaisushant/tshoot/internal/models"
 )
 
 // DockerCollector wraps a docker SDK client.

@@ -17,10 +17,10 @@ type ProcessCollector struct {
 
 // ProcessStat contains per-process cpu/memory metrics.
 type ProcessStat struct {
-	PID       int
-	Name      string
+	PID        int
+	Name       string
 	CPUPercent float64
-	MemoryMB  int
+	MemoryMB   int
 	TotalTicks uint64
 }
 
