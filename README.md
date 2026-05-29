@@ -2,7 +2,7 @@
 
 A lightweight, zero-dependency terminal user interface (TUI) designed for instantaneous Linux server diagnostics and infrastructure troubleshooting. Built natively in Go.
 
-![tshoot Dashboard Overview](https://github.com/prasaisushant/tshoot/raw/main/assets/dashboard.png)
+![tshoot Dashboard Overview](https://github.com/prasaisushant/tshoot/raw/main/assets/dashboar.png)
 
 ---
 
