@@ -61,4 +61,4 @@ The interface splits your terminal space into high-density, interactive panels t
 You can securely bootstrap `tshoot` onto any Linux computer using our unified, single-line installation pipeline. The script automatically manages the latest release targeting, downloads the architecture-specific asset, adjusts permissions, and routes it to your global application paths.
 
 ```bash
-curl -sSL [https://raw.githubusercontent.com/prasaisushant/tshoot/main/install.sh](https://raw.githubusercontent.com/prasaisushant/tshoot/main/install.sh) | bash
+curl -sSL https://raw.githubusercontent.com/prasaisushant/tshoot/main/install.sh | bash
