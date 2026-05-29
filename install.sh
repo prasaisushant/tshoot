@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
-# Stop the script immediately if any individual command fails
+
 set -e
 
-# Define variables for configuration
-REPO_OWNER="prasaisushant" # <-- Replace with your real GitHub username
+
+REPO_OWNER="prasaisushant" 
 REPO_NAME="tshoot"
 BINARY_NAME="tshoot-linux-amd64"
 TARGET_DIR="/usr/local/bin"
