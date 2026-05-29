@@ -126,7 +126,7 @@ func RenderFKeyBar(theme *Theme, width int) string {
 		"F3:Ping",
 		"F4:Focus",
 		"s:Storage",
-		"b:Back",
+		"Esc/b:Back",
 		"q:Quit",
 	}
 
@@ -223,7 +223,7 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 
 	// Row 2: Top CPU | Ports | IP/Routes (3 columns)
 	topCPUPanel := &Panel{
-		Title:   "Top CPU",
+		Title:   "Top CPU usage",
 		Width:   col3Widths[0],
 		Height:  row2Height,
 		Content: formatTopCPUContent(state.TopCPUProcesses, state.ProcessError),
@@ -253,7 +253,7 @@ func RenderDashboard(state *models.AppState, theme *Theme) string {
 
 	// Row 3: Top Mem | Docker | Container Logs (3 columns)
 	topMemPanel := &Panel{
-		Title:   "Top Mem",
+		Title:   "Top Memory usage",
 		Width:   col3Widths[0],
 		Height:  row3Height,
 		Content: formatTopMemContent(state.TopMemProcesses, state.ProcessError),
@@ -792,7 +792,7 @@ func renderFocusSelectionDashboard(state *models.AppState, theme *Theme) string 
 	row2Widths := splitDimension(usableWidth-2, 3)
 	panels2 := []*Panel{
 		{
-			Title:     "Top CPU",
+			Title:     "Top CPU usage",
 			Width:     row2Widths[0],
 			Height:    summaryHeight,
 			IsFocused: state.FocusedPanel == 4,
@@ -825,7 +825,7 @@ func renderFocusSelectionDashboard(state *models.AppState, theme *Theme) string 
 	row3Widths := splitDimension(usableWidth-2, 3)
 	panels3 := []*Panel{
 		{
-			Title:     "Top Mem",
+			Title:     "Top Memory usage",
 			Width:     row3Widths[0],
 			Height:    summaryHeight,
 			IsFocused: state.FocusedPanel == 7,
@@ -1119,7 +1119,7 @@ func renderRefreshRateModal(state *models.AppState, theme *Theme, width, height 
 
 func renderDockerModal(state *models.AppState, theme *Theme, width, height int) string {
 	lines := make([]string, 0, len(state.DockerContainers)+3)
-	lines = append(lines, "Use ↑/↓ (or j/k), Enter to select")
+	lines = append(lines, "Use ↑/↓ (or j/k), Enter to select, Esc/b to exit")
 	lines = append(lines, "")
 
 	if len(state.DockerContainers) == 0 {
