@@ -6,7 +6,7 @@ A lightweight, zero-dependency terminal user interface (TUI) designed for instan
 
 ---
 
-## 📌 What is `tshoot`?
+##  What is `tshoot`?
 
 The first step of debugging any infrastructure issue is almost always identical:
 1. **Check core resource strains** (Is the CPU or Memory pinned?)
@@ -22,7 +22,7 @@ Instead of manually executing an exhausting sequence of isolated commands like `
 
 ---
 
-## 🧠 Why It Was Created
+## Why It Was Created
 
 `tshoot` fills the gap as your first line of defense during infrastructure anomalies, focusing entirely on speed, accuracy, and survivability:
 * **Direct Kernel Communication:** It does not scrape output from shell utilities or look for system binaries. It parses data directly from the Linux kernel's `/proc` filesystem.
@@ -31,7 +31,7 @@ Instead of manually executing an exhausting sequence of isolated commands like `
 
 ---
 
-## ✨ Features & Navigation
+##  Features & Navigation
 
 The interface splits your terminal space into high-density, interactive panels that can be expanded, filtered, or configured via keyboard inputs.
 
@@ -62,3 +62,14 @@ You can securely bootstrap `tshoot` onto any Linux computer using single-line in
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/prasaisushant/tshoot/main/install.sh | bash
+```
+---
+## Gallery 
+
+(https://github.com/prasaisushant/tshoot/raw/main/assets/referesh_rate.png)
+(https://github.com/prasaisushant/tshoot/raw/main/assets/select_container_for_log.png)
+(https://github.com/prasaisushant/tshoot/raw/main/assets/docker_log.png)
+(https://github.com/prasaisushant/tshoot/raw/main/assets/ping_target_add.png)
+(https://github.com/prasaisushant/tshoot/raw/main/assets/ping.png)
+(https://github.com/prasaisushant/tshoot/raw/main/assets/post_addition.png)
+
