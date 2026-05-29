@@ -30,8 +30,9 @@ type AppState struct {
 	Width  int
 	Height int
 
-	// Focus state (which panel is focused)
-	FocusedPanel int
+	// Focus state (which panel is focused and whether selection is active)
+	FocusedPanel       int
+	FocusPanelSelected bool
 
 	// System metrics (Phase 2+)
 	Metrics SystemMetrics
@@ -58,6 +59,10 @@ type AppState struct {
 	// Ping metrics (Phase 4+)
 	PingResults []PingStat
 	PingError   string
+
+	// Refresh settings
+	RefreshIntervalSec    int
+	RefreshRateModalIndex int
 
 	// Docker metrics (Phase 5+)
 	DockerContainers    []DockerContainerStat
@@ -143,34 +148,37 @@ type DockerContainerStat struct {
 // NewAppState creates a new app state with sensible defaults
 func NewAppState(width, height int) *AppState {
 	return &AppState{
-		Mode:         ModeNormal,
-		ActiveModal:  ModalNone,
-		Width:        width,
-		Height:       height,
-		FocusedPanel: 0,
+		Mode:               ModeNormal,
+		ActiveModal:        ModalNone,
+		Width:              width,
+		Height:             height,
+		FocusedPanel:       0,
+		FocusPanelSelected: false,
 		Metrics: SystemMetrics{
 			Clock: "N/A",
 		},
-		TopCPUProcesses:      []ProcessStat{},
-		TopMemProcesses:      []ProcessStat{},
-		OpenPorts:            []PortStat{},
-		IPRouteLines:         []string{},
-		StorageMounts:        []StorageMount{},
-		StorageDeviceEntries: []StorageDeviceEntry{},
-		StorageLoopCount:     0,
-		StorageIOReadKB:      0,
-		StorageIOWriteKB:     0,
-		StorageListView:      false,
-		PingResults:          []PingStat{},
-		DockerContainers:     []DockerContainerStat{},
-		DockerModalIndex:     0,
-		PingModalIndex:       0,
-		PingEditing:          false,
-		PingEditIndex:        -1,
-		PingEditLabel:        "",
-		PingEditHost:         "",
-		PingEditField:        0,
-		ContainerLogs:        []string{},
+		TopCPUProcesses:       []ProcessStat{},
+		TopMemProcesses:       []ProcessStat{},
+		OpenPorts:             []PortStat{},
+		IPRouteLines:          []string{},
+		StorageMounts:         []StorageMount{},
+		StorageDeviceEntries:  []StorageDeviceEntry{},
+		StorageLoopCount:      0,
+		StorageIOReadKB:       0,
+		StorageIOWriteKB:      0,
+		StorageListView:       false,
+		PingResults:           []PingStat{},
+		RefreshIntervalSec:    3,
+		RefreshRateModalIndex: 1,
+		DockerContainers:      []DockerContainerStat{},
+		DockerModalIndex:      0,
+		PingModalIndex:        0,
+		PingEditing:           false,
+		PingEditIndex:         -1,
+		PingEditLabel:         "",
+		PingEditHost:          "",
+		PingEditField:         0,
+		ContainerLogs:         []string{},
 	}
 }
 

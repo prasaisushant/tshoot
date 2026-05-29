@@ -36,6 +36,12 @@ func NewApp() *App {
 	config := LoadConfig()
 	state := models.NewAppState(80, 24) // Default size, will be updated on first render
 
+	state.RefreshIntervalSec = config.General.RefreshRateDefault
+	if state.RefreshIntervalSec <= 0 {
+		state.RefreshIntervalSec = 3
+	}
+	state.RefreshRateModalIndex = getRefreshRateIndex(state.RefreshIntervalSec)
+
 	theme := ui.GetTheme(config.General.Theme)
 	dockerCollector, _ := collectors.NewDockerCollector()
 
@@ -66,7 +72,7 @@ func NewApp() *App {
 
 // Init initializes the app (bubbletea Model interface)
 func (a *App) Init() tea.Cmd {
-	return scheduleMetricsTick()
+	return a.scheduleMetricsTick()
 }
 
 // Update handles messages (bubbletea Model interface)
@@ -152,7 +158,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		a.collectDockerSnapshot()
-		return a, scheduleMetricsTick()
+		return a, a.scheduleMetricsTick()
 	case tea.QuitMsg:
 		return a, tea.Quit
 	}
@@ -216,10 +222,32 @@ func (a *App) collectDockerSnapshot() {
 	a.state.ContainerLogs = logs
 }
 
-func scheduleMetricsTick() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+func (a *App) scheduleMetricsTick() tea.Cmd {
+	interval := a.state.RefreshIntervalSec
+	if interval <= 0 {
+		interval = a.config.General.RefreshRateDefault
+	}
+	if interval <= 0 {
+		interval = 3
+	}
+	return tea.Tick(time.Duration(interval)*time.Second, func(t time.Time) tea.Msg {
 		return metricsTickMsg(t)
 	})
+}
+
+func getRefreshRateIndex(value int) int {
+	switch value {
+	case 1:
+		return 0
+	case 3:
+		return 1
+	case 5:
+		return 2
+	case 10:
+		return 3
+	default:
+		return 1
+	}
 }
 
 func convertCollectorProcesses(items []collectors.ProcessStat) []models.ProcessStat {
@@ -248,8 +276,7 @@ func (a *App) View() string {
 	case models.ModeModal:
 		return ui.RenderModal(a.state, a.theme)
 	case models.ModeFocused:
-		// TODO: Phase 4 - Implement focused panel view
-		return ui.RenderDashboard(a.state, a.theme)
+		return ui.RenderFocusedDashboard(a.state, a.theme)
 	default:
 		return ui.RenderDashboard(a.state, a.theme)
 	}
@@ -266,13 +293,22 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case models.ModeModal:
 			a.state.CloseModal()
 		case models.ModeFocused:
-			a.state.SetMode(models.ModeNormal)
+			if a.state.FocusPanelSelected {
+				a.state.FocusPanelSelected = false
+			} else {
+				a.state.SetMode(models.ModeNormal)
+			}
 		}
 		return a, tea.ClearScreen
 	}
 
 	// Modal-first behavior: allow users to reliably go back.
 	if a.state.Mode == models.ModeModal {
+		if a.state.ActiveModal == models.ModalRefreshRate {
+			if handled, cmd := a.handleRefreshRateModalKey(msg, key); handled {
+				return a, cmd
+			}
+		}
 		if a.state.ActiveModal == models.ModalDocker {
 			if handled, cmd := a.handleDockerModalKey(msg, key); handled {
 				return a, cmd
@@ -287,13 +323,11 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.state.CloseModal()
 			return a, tea.ClearScreen
 		}
-		if msg.Type == tea.KeyEnter && a.state.ActiveModal != models.ModalDocker {
-			a.state.CloseModal()
-			return a, tea.ClearScreen
-		}
-		if key == "q" && !a.state.PingEditing {
-			a.state.CloseModal()
-			return a, tea.ClearScreen
+	}
+
+	if a.state.Mode == models.ModeFocused {
+		if handled, cmd := a.handleFocusModeKey(msg, key); handled {
+			return a, cmd
 		}
 	}
 
@@ -310,7 +344,7 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.state.StorageListView = !a.state.StorageListView
 		return a, nil
 
-	// F-keys for modals
+	// F-keys for modals and modes
 	case "f1":
 		a.toggleModal(models.ModalRefreshRate)
 		return a, tea.ClearScreen
@@ -322,24 +356,36 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.toggleModal(models.ModalPing)
 		return a, tea.ClearScreen
 	case "f4":
-		// Open focus grid selector modal (Phase 1 stub)
 		if a.state.Mode == models.ModeFocused {
 			a.state.SetMode(models.ModeNormal)
+			a.state.FocusPanelSelected = false
 		} else {
-			a.toggleModal(models.ModalFocus)
+			a.state.SetMode(models.ModeFocused)
+			a.state.FocusPanelSelected = false
+			a.state.FocusedPanel = 0
 		}
 		return a, tea.ClearScreen
 
-	// Close modal with ESC
+	// Close modal or focused view with ESC
 	case "esc":
 		if a.state.Mode == models.ModeModal {
 			a.state.CloseModal()
+		} else if a.state.Mode == models.ModeFocused {
+			if a.state.FocusPanelSelected {
+				a.state.FocusPanelSelected = false
+			} else {
+				a.state.SetMode(models.ModeNormal)
+			}
 		}
 		return a, tea.ClearScreen
 
 	// Other keys
 	case "r":
-		// Force refresh (Phase 2+)
+		if a.state.Mode == models.ModeFocused {
+			a.state.FocusedPanel = 0
+			a.state.StorageListView = false
+			return a, tea.ClearScreen
+		}
 		return a, nil
 	case "tab":
 		// Cycle focus between panels
@@ -373,6 +419,148 @@ func (a *App) syncDockerModalSelection() {
 			return
 		}
 	}
+}
+
+func (a *App) handleRefreshRateModalKey(msg tea.KeyMsg, key string) (bool, tea.Cmd) {
+	rates := []int{1, 3, 5, 10}
+
+	switch key {
+	case "up", "k":
+		if a.state.RefreshRateModalIndex > 0 {
+			a.state.RefreshRateModalIndex--
+		}
+		return true, tea.ClearScreen
+	case "down", "j":
+		if a.state.RefreshRateModalIndex < len(rates)-1 {
+			a.state.RefreshRateModalIndex++
+		}
+		return true, tea.ClearScreen
+	case "enter":
+		selected := rates[a.state.RefreshRateModalIndex]
+		a.state.RefreshIntervalSec = selected
+		a.state.RefreshRateModalIndex = getRefreshRateIndex(selected)
+		a.state.CloseModal()
+		return true, tea.ClearScreen
+	case "esc":
+		a.state.CloseModal()
+		return true, tea.ClearScreen
+	case "1", "3", "5", "10":
+		if key == "1" || key == "3" || key == "5" || key == "10" {
+			value := 1
+			switch key {
+			case "1":
+				value = 1
+			case "3":
+				value = 3
+			case "5":
+				value = 5
+			case "10":
+				value = 10
+			}
+			a.state.RefreshIntervalSec = value
+			a.state.RefreshRateModalIndex = getRefreshRateIndex(value)
+			a.state.CloseModal()
+			return true, tea.ClearScreen
+		}
+	}
+
+	return false, nil
+}
+
+func (a *App) handleFocusModeKey(msg tea.KeyMsg, key string) (bool, tea.Cmd) {
+	if !a.state.FocusPanelSelected {
+		switch key {
+		case "up", "k":
+			switch a.state.FocusedPanel {
+			case 4:
+				a.state.FocusedPanel = 0
+			case 5:
+				a.state.FocusedPanel = 1
+			case 6:
+				a.state.FocusedPanel = 2
+			case 7:
+				a.state.FocusedPanel = 4
+			case 8:
+				a.state.FocusedPanel = 5
+			case 9:
+				a.state.FocusedPanel = 6
+			}
+			return true, tea.ClearScreen
+		case "down", "j":
+			switch a.state.FocusedPanel {
+			case 0:
+				a.state.FocusedPanel = 4
+			case 1:
+				a.state.FocusedPanel = 5
+			case 2:
+				a.state.FocusedPanel = 6
+			case 3:
+				a.state.FocusedPanel = 6
+			case 4:
+				a.state.FocusedPanel = 7
+			case 5:
+				a.state.FocusedPanel = 8
+			case 6:
+				a.state.FocusedPanel = 9
+			}
+			return true, tea.ClearScreen
+		case "left", "h":
+			switch a.state.FocusedPanel {
+			case 1:
+				a.state.FocusedPanel = 0
+			case 2:
+				a.state.FocusedPanel = 1
+			case 3:
+				a.state.FocusedPanel = 2
+			case 5:
+				a.state.FocusedPanel = 4
+			case 6:
+				a.state.FocusedPanel = 5
+			case 8:
+				a.state.FocusedPanel = 7
+			case 9:
+				a.state.FocusedPanel = 8
+			}
+			return true, tea.ClearScreen
+		case "right", "l":
+			switch a.state.FocusedPanel {
+			case 0:
+				a.state.FocusedPanel = 1
+			case 1:
+				a.state.FocusedPanel = 2
+			case 2:
+				a.state.FocusedPanel = 3
+			case 4:
+				a.state.FocusedPanel = 5
+			case 5:
+				a.state.FocusedPanel = 6
+			case 7:
+				a.state.FocusedPanel = 8
+			case 8:
+				a.state.FocusedPanel = 9
+			}
+			return true, tea.ClearScreen
+		case "enter":
+			a.state.FocusPanelSelected = true
+			return true, tea.ClearScreen
+		case "r":
+			a.state.FocusedPanel = 0
+			return true, tea.ClearScreen
+		}
+		return false, nil
+	}
+
+	switch key {
+	case "esc", "b":
+		a.state.FocusPanelSelected = false
+		return true, tea.ClearScreen
+	case "r":
+		a.state.FocusPanelSelected = false
+		a.state.FocusedPanel = 0
+		return true, tea.ClearScreen
+	}
+
+	return false, nil
 }
 
 func (a *App) handleDockerModalKey(msg tea.KeyMsg, key string) (bool, tea.Cmd) {

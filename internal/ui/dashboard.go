@@ -79,11 +79,18 @@ type Panel struct {
 // RenderPanel renders a panel with the given theme
 func RenderPanel(panel *Panel, theme *Theme) string {
 	style := theme.PanelStyle(panel.Width)
+	if panel.IsFocused {
+		style = style.BorderForeground(theme.AccentFg).Foreground(theme.AccentFg)
+	}
 	frameWidth := style.GetHorizontalFrameSize()
 	frameHeight := style.GetVerticalFrameSize()
 	contentWidth := max(1, panel.Width-frameWidth)
 	contentHeight := max(1, panel.Height-frameHeight)
 	titleStyle := theme.TitleStyle()
+
+	if panel.IsFocused {
+		titleStyle = titleStyle.Bold(true)
+	}
 
 	lines := make([]string, 0, contentHeight)
 	title := truncateToWidth(fmt.Sprintf(" %s ", panel.Title), contentWidth)
@@ -118,6 +125,7 @@ func RenderFKeyBar(theme *Theme, width int) string {
 		"F2:Docker",
 		"F3:Ping",
 		"F4:Focus",
+		"r:Reset",
 		"s:Storage",
 		"Tab:Next",
 		"?:Help",
@@ -355,6 +363,83 @@ func renderPercentBar(percent float64, width int) string {
 	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
 }
 
+func renderPieChart(percent float64, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	filled := int((percent / 100) * float64(width))
+	if filled > width {
+		filled = width
+	}
+	return strings.Repeat("●", filled) + strings.Repeat("○", width-filled)
+}
+
+func formatFocusCPUMemoryContent(state *models.AppState, width int) []string {
+	if width < 10 {
+		width = 10
+	}
+	lines := []string{
+		fmt.Sprintf("CPU Usage:  %3.0f%%", state.Metrics.CPUPercent),
+		renderPercentBar(state.Metrics.CPUPercent, width-2),
+		"",
+		fmt.Sprintf("Mem Usage:  %3.0f%%", state.Metrics.MemoryPercent),
+		renderPercentBar(state.Metrics.MemoryPercent, width-2),
+		"",
+		fmt.Sprintf("Mem Pie: [%s]", renderPieChart(state.Metrics.MemoryPercent, 10)),
+		"",
+		fmt.Sprintf("Load: %.2f %.2f %.2f", state.Metrics.Load1, state.Metrics.Load5, state.Metrics.Load15),
+		fmt.Sprintf("Clock: %s", state.Metrics.Clock),
+		fmt.Sprintf("Refresh: every %ds", state.RefreshIntervalSec),
+		"",
+		"Back: b   Reset: r",
+	}
+	return lines
+}
+
+func formatFocusStorageContent(state *models.AppState, width int) []string {
+	return formatStorageContent(state.StorageMounts, state.StorageDeviceEntries, state.StorageError, state.StorageIOReadKB, state.StorageIOWriteKB, state.StorageLoopCount, true, width)
+}
+
+func formatIPRouteContent(lines []string, errSummary string) []string {
+	if len(lines) == 0 {
+		if errSummary != "" {
+			return []string{"Data: limited (" + errSummary + ")"}
+		}
+		return []string{"No network data"}
+	}
+
+	ipLines := []string{"IP Addresses:", strings.Repeat("─", 18)}
+	routeLines := []string{"Routes:", strings.Repeat("─", 18)}
+	for _, line := range lines {
+		if strings.HasPrefix(line, "gw ") {
+			routeLines = append(routeLines, line)
+		} else {
+			ipLines = append(ipLines, line)
+		}
+	}
+	if len(ipLines) == 2 {
+		ipLines = append(ipLines, "No IP addresses")
+	}
+	if len(routeLines) == 2 {
+		routeLines = append(routeLines, "No default route")
+	}
+
+	out := make([]string, 0, len(ipLines)+len(routeLines)+1)
+	out = append(out, ipLines...)
+	out = append(out, "")
+	out = append(out, routeLines...)
+	if errSummary != "" {
+		out = append(out, "", "Data: limited ("+errSummary+")")
+	}
+	return out
+}
+
 func formatUptime(seconds float64) string {
 	if seconds <= 0 {
 		return "N/A"
@@ -418,16 +503,6 @@ func formatPortsContent(ports []models.PortStat, errSummary string) []string {
 			pidText = fmt.Sprintf("%d", p.PID)
 		}
 		lines = append(lines, fmt.Sprintf("%5d %-4s %-6s %s", p.Port, p.Proto, pidText, p.Process))
-	}
-	return lines
-}
-
-func formatIPRouteContent(lines []string, errSummary string) []string {
-	if len(lines) == 0 {
-		if errSummary != "" {
-			return []string{"Data: limited (" + errSummary + ")"}
-		}
-		return []string{"No route data"}
 	}
 	return lines
 }
@@ -626,11 +701,11 @@ func formatContainerLogsContent(selected string, logs []string, errSummary strin
 	return out
 }
 
-// RenderModal renders a modal overlay (stub for Phase 1)
+// RenderModal renders a modal overlay
 func RenderModal(state *models.AppState, theme *Theme) string {
 	switch state.ActiveModal {
 	case models.ModalRefreshRate:
-		return renderRefreshRateModal(theme, state.Width, state.Height)
+		return renderRefreshRateModal(state, theme, state.Width, state.Height)
 	case models.ModalDocker:
 		return renderDockerModal(state, theme, state.Width, state.Height)
 	case models.ModalPing:
@@ -642,14 +717,389 @@ func RenderModal(state *models.AppState, theme *Theme) string {
 	}
 }
 
+// RenderFocusedDashboard renders an expanded focus view
+func RenderFocusedDashboard(state *models.AppState, theme *Theme) string {
+	if state.Width < 60 || state.Height < 18 {
+		return "Terminal too small for focus view. Resize to at least 60x18."
+	}
+
+	if !state.FocusPanelSelected {
+		return renderFocusSelectionDashboard(state, theme)
+	}
+
+	return renderFocusedPanel(state, theme)
+}
+
+func renderFocusSelectionDashboard(state *models.AppState, theme *Theme) string {
+	usableWidth := state.Width
+	usableHeight := state.Height - 2
+	panelWidth := splitDimension(usableWidth-3, 4)[0]
+	summaryHeight := max(6, usableHeight/3)
+
+	panels := []*Panel{
+		{
+			Title:     "CPU/Mem",
+			Width:     panelWidth,
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 0,
+			Content: []string{
+				fmt.Sprintf("CPU: %3.0f%%", state.Metrics.CPUPercent),
+				fmt.Sprintf("Mem: %3.0f%%", state.Metrics.MemoryPercent),
+				fmt.Sprintf("Swap: %3.0f%%", state.Metrics.SwapPercent),
+			},
+		},
+		{
+			Title:     "Storage",
+			Width:     panelWidth,
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 1,
+			Content: []string{
+				fmt.Sprintf("Mounts: %d", len(state.StorageMounts)),
+				fmt.Sprintf("R: %s/s", formatSizeWithUnit(state.StorageIOReadKB)),
+				fmt.Sprintf("W: %s/s", formatSizeWithUnit(state.StorageIOWriteKB)),
+			},
+		},
+		{
+			Title:     "Ping",
+			Width:     panelWidth,
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 2,
+			Content: []string{
+				fmt.Sprintf("Targets: %d", len(state.PingResults)),
+				fmt.Sprintf("Errors: %s", state.PingError),
+			},
+		},
+		{
+			Title:     "Uptime",
+			Width:     panelWidth,
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 3,
+			Content: []string{
+				formatUptime(state.Metrics.UptimeSeconds),
+				state.Metrics.Clock,
+				fmt.Sprintf("Load: %.2f %.2f %.2f", state.Metrics.Load1, state.Metrics.Load5, state.Metrics.Load15),
+			},
+		},
+	}
+
+	row1 := lipgloss.JoinHorizontal(lipgloss.Top,
+		RenderPanel(panels[0], theme),
+		" ",
+		RenderPanel(panels[1], theme),
+		" ",
+		RenderPanel(panels[2], theme),
+		" ",
+		RenderPanel(panels[3], theme),
+	)
+
+	row2Widths := splitDimension(usableWidth-2, 3)
+	panels2 := []*Panel{
+		{
+			Title:     "Top CPU",
+			Width:     row2Widths[0],
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 4,
+			Content:   previewTopCPUContent(state.TopCPUProcesses),
+		},
+		{
+			Title:     "Ports",
+			Width:     row2Widths[1],
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 5,
+			Content:   previewPortsContent(state.OpenPorts),
+		},
+		{
+			Title:     "IP / Routes",
+			Width:     row2Widths[2],
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 6,
+			Content:   previewIPRouteContent(state.IPRouteLines),
+		},
+	}
+
+	row2 := lipgloss.JoinHorizontal(lipgloss.Top,
+		RenderPanel(panels2[0], theme),
+		" ",
+		RenderPanel(panels2[1], theme),
+		" ",
+		RenderPanel(panels2[2], theme),
+	)
+
+	row3Widths := splitDimension(usableWidth-2, 3)
+	panels3 := []*Panel{
+		{
+			Title:     "Top Mem",
+			Width:     row3Widths[0],
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 7,
+			Content:   previewTopMemContent(state.TopMemProcesses),
+		},
+		{
+			Title:     "Docker",
+			Width:     row3Widths[1],
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 8,
+			Content: []string{
+				fmt.Sprintf("Containers: %d", len(state.DockerContainers)),
+				state.SelectedContainer,
+			},
+		},
+		{
+			Title:     "Logs",
+			Width:     row3Widths[2],
+			Height:    summaryHeight,
+			IsFocused: state.FocusedPanel == 9,
+			Content:   previewLogsContent(state.ContainerLogs),
+		},
+	}
+
+	row3 := lipgloss.JoinHorizontal(lipgloss.Top,
+		RenderPanel(panels3[0], theme),
+		" ",
+		RenderPanel(panels3[1], theme),
+		" ",
+		RenderPanel(panels3[2], theme),
+	)
+
+	dashboard := lipgloss.JoinVertical(lipgloss.Left,
+		theme.TitleStyle().Render("↑↓←→ to select panel, Enter to focus"),
+		"",
+		row1,
+		"",
+		row2,
+		"",
+		row3,
+		"",
+		theme.TitleStyle().Render("Press Enter to open selected section fullscreen."),
+	)
+
+	fKeyBar := RenderFKeyBar(theme, state.Width)
+	dashboard = lipgloss.JoinVertical(lipgloss.Left,
+		dashboard,
+		fKeyBar,
+	)
+
+	return dashboard
+}
+
+func renderFocusedPanel(state *models.AppState, theme *Theme) string {
+	usableWidth := state.Width
+	height := state.Height - 1
+	var panel *Panel
+
+	switch state.FocusedPanel {
+	case 0:
+		panel = &Panel{
+			Title:   "CPU / Memory Detail",
+			Width:   usableWidth,
+			Height:  height,
+			Content: formatFocusedCPUFullContent(state, usableWidth-4),
+		}
+	case 1:
+		panel = &Panel{
+			Title:   "Storage Detail",
+			Width:   usableWidth,
+			Height:  height,
+			Content: formatStorageContent(state.StorageMounts, state.StorageDeviceEntries, state.StorageError, state.StorageIOReadKB, state.StorageIOWriteKB, state.StorageLoopCount, false, usableWidth-6),
+		}
+	case 2:
+		panel = &Panel{
+			Title:   "Ping Detail",
+			Width:   usableWidth,
+			Height:  height,
+			Content: formatPingContent(state.PingResults, state.PingError),
+		}
+	case 3:
+		panel = &Panel{
+			Title:  "System Detail",
+			Width:  usableWidth,
+			Height: height,
+			Content: []string{
+				"Uptime: " + formatUptime(state.Metrics.UptimeSeconds),
+				"Clock: " + state.Metrics.Clock,
+				fmt.Sprintf("Load: %.2f %.2f %.2f", state.Metrics.Load1, state.Metrics.Load5, state.Metrics.Load15),
+				fmt.Sprintf("CPU: %.0f%%", state.Metrics.CPUPercent),
+				fmt.Sprintf("Mem: %.0f%%", state.Metrics.MemoryPercent),
+				fmt.Sprintf("Swap: %.0f%%", state.Metrics.SwapPercent),
+			},
+		}
+	case 4:
+		panel = &Panel{
+			Title:   "Top CPU Processes",
+			Width:   usableWidth,
+			Height:  height,
+			Content: formatTopCPUContent(state.TopCPUProcesses, state.ProcessError),
+		}
+	case 5:
+		panel = &Panel{
+			Title:   "Open Ports Detail",
+			Width:   usableWidth,
+			Height:  height,
+			Content: formatPortsContent(state.OpenPorts, state.NetworkError),
+		}
+	case 6:
+		panel = &Panel{
+			Title:   "IP / Routes Detail",
+			Width:   usableWidth,
+			Height:  height,
+			Content: formatIPRouteContent(state.IPRouteLines, state.NetworkError),
+		}
+	case 7:
+		panel = &Panel{
+			Title:   "Top Memory Processes",
+			Width:   usableWidth,
+			Height:  height,
+			Content: formatTopMemContent(state.TopMemProcesses, state.ProcessError),
+		}
+	case 8:
+		panel = &Panel{
+			Title:   "Docker Containers Detail",
+			Width:   usableWidth,
+			Height:  height,
+			Content: formatDockerContainersContent(state.DockerContainers, state.DockerError),
+		}
+	case 9:
+		panel = &Panel{
+			Title:   "Container Logs Detail",
+			Width:   usableWidth,
+			Height:  height,
+			Content: formatContainerLogsContent(state.SelectedContainer, state.ContainerLogs, state.DockerError),
+		}
+	default:
+		panel = &Panel{
+			Title:   "Focus View",
+			Width:   usableWidth,
+			Height:  height,
+			Content: []string{"Invalid selection"},
+		}
+	}
+
+	dashboard := RenderPanel(panel, theme)
+	fKeyBar := RenderFKeyBar(theme, state.Width)
+	return lipgloss.JoinVertical(lipgloss.Left, dashboard, fKeyBar)
+}
+
+func formatFocusedCPUFullContent(state *models.AppState, width int) []string {
+	if width < 10 {
+		width = 10
+	}
+	return []string{
+		fmt.Sprintf("CPU Usage:  %3.0f%%", state.Metrics.CPUPercent),
+		renderPercentBar(state.Metrics.CPUPercent, width-4),
+		"",
+		fmt.Sprintf("Memory Usage:  %3.0f%%", state.Metrics.MemoryPercent),
+		renderPercentBar(state.Metrics.MemoryPercent, width-4),
+		"",
+		fmt.Sprintf("Swap Usage:  %3.0f%%", state.Metrics.SwapPercent),
+		renderPercentBar(state.Metrics.SwapPercent, width-4),
+		"",
+		"CPU Trend: " + renderTrendLine(state.Metrics.CPUPercent, width-12),
+		"Mem Trend: " + renderTrendLine(state.Metrics.MemoryPercent, width-12),
+		"Swap Trend: " + renderTrendLine(state.Metrics.SwapPercent, width-12),
+		"",
+		"Mem Pie:  [" + renderPieChart(state.Metrics.MemoryPercent, 12) + "]",
+		"Swap Pie: [" + renderPieChart(state.Metrics.SwapPercent, 12) + "]",
+		"",
+		fmt.Sprintf("Load: %.2f %.2f %.2f", state.Metrics.Load1, state.Metrics.Load5, state.Metrics.Load15),
+		"Back: b / Esc",
+	}
+}
+
+func renderTrendLine(percent float64, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	chars := []rune("▁▂▃▄▅▆▇█")
+	idx := int((percent / 100) * float64(len(chars)-1))
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(chars) {
+		idx = len(chars) - 1
+	}
+	return strings.Repeat(string(chars[idx]), width)
+}
+
+func previewTopCPUContent(processes []models.ProcessStat) []string {
+	if len(processes) == 0 {
+		return []string{"No process data"}
+	}
+	lines := make([]string, 0, 3)
+	for i, p := range processes {
+		if i >= 2 {
+			break
+		}
+		lines = append(lines, fmt.Sprintf("%s %5.1f%%", p.Name, p.CPUPercent))
+	}
+	return lines
+}
+
+func previewTopMemContent(processes []models.ProcessStat) []string {
+	if len(processes) == 0 {
+		return []string{"No process data"}
+	}
+	lines := make([]string, 0, 3)
+	for i, p := range processes {
+		if i >= 2 {
+			break
+		}
+		lines = append(lines, fmt.Sprintf("%s %5dMB", p.Name, p.MemoryMB))
+	}
+	return lines
+}
+
+func previewPortsContent(ports []models.PortStat) []string {
+	if len(ports) == 0 {
+		return []string{"No listening ports"}
+	}
+	lines := make([]string, 0, 3)
+	for i, p := range ports {
+		if i >= 2 {
+			break
+		}
+		lines = append(lines, fmt.Sprintf("%d/%s %s", p.Port, p.Proto, p.Process))
+	}
+	return lines
+}
+
+func previewIPRouteContent(lines []string) []string {
+	if len(lines) == 0 {
+		return []string{"No network data"}
+	}
+	if len(lines) > 2 {
+		return lines[:2]
+	}
+	return lines
+}
+
+func previewLogsContent(logs []string) []string {
+	if len(logs) == 0 {
+		return []string{"No logs"}
+	}
+	last := logs[len(logs)-1]
+	return []string{truncateToWidth(last, 24)}
+}
+
 // Stub modal renderers for Phase 1
-func renderRefreshRateModal(theme *Theme, width, height int) string {
-	return centerModal(theme, "Refresh Rate Settings", []string{
-		"○ 1s   (live)",
-		"● 3s   (default)",
-		"○ 5s",
-		"○ 10s",
-	}, width, height)
+func renderRefreshRateModal(state *models.AppState, theme *Theme, width, height int) string {
+	rates := []int{1, 3, 5, 10}
+	lines := []string{
+		"Select refresh interval:",
+		"",
+	}
+	for i, rate := range rates {
+		marker := "○"
+		if i == state.RefreshRateModalIndex {
+			marker = "●"
+		}
+		current := ""
+		if rate == state.RefreshIntervalSec {
+			current = " (current)"
+		}
+		lines = append(lines, fmt.Sprintf("%s %ds%s", marker, rate, current))
+	}
+	lines = append(lines, "", "Use ↑/↓ or 1/3/5/10, Enter to apply, Esc to cancel")
+	return centerModal(theme, "Refresh Rate Settings", lines, width, height)
 }
 
 func renderDockerModal(state *models.AppState, theme *Theme, width, height int) string {
