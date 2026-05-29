@@ -66,10 +66,10 @@ curl -sSL https://raw.githubusercontent.com/prasaisushant/tshoot/main/install.sh
 ---
 ## Gallery 
 
-(https://github.com/prasaisushant/tshoot/raw/main/assets/referesh_rate.png)
-(https://github.com/prasaisushant/tshoot/raw/main/assets/select_container_for_log.png)
-(https://github.com/prasaisushant/tshoot/raw/main/assets/docker_log.png)
-(https://github.com/prasaisushant/tshoot/raw/main/assets/ping_target_add.png)
-(https://github.com/prasaisushant/tshoot/raw/main/assets/ping.png)
-(https://github.com/prasaisushant/tshoot/raw/main/assets/post_addition.png)
+![tshoot Referesh rate setting](https://github.com/prasaisushant/tshoot/raw/main/assets/referesh_rate.png)
+![tshoot Docker container selection setting](https://github.com/prasaisushant/tshoot/raw/main/assets/select_container_for_log.png)
+![tshoot Docker log focus mode](https://github.com/prasaisushant/tshoot/raw/main/assets/docker_log.png)
+![tshoot Ping setting](https://github.com/prasaisushant/tshoot/raw/main/assets/ping.png)
+![tshoot Ping add setting](https://github.com/prasaisushant/tshoot/raw/main/assets/ping_target_add.png)
+![tshoot Ping post target addition setting](https://github.com/prasaisushant/tshoot/raw/main/assets/post_addition.png)
 
