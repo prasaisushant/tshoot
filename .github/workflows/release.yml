@@ -3,14 +3,14 @@ name: Release Linux Tshoot Binary
 on:
   push:
     tags:
-      - 'v*' # Triggers the workflow only when you push a tag starting with 'v'
+      - 'v*' 
 
 jobs:
   build-and-release:
     name: Build Linux Binary
     runs-on: ubuntu-latest
     permissions:
-      contents: write # CRITICAL: Gives this runner permission to upload binary assets into your repo release
+      contents: write 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go Environment
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25' # Matches your go.mod perfectly
+          go-version: '1.25' 
 
       - name: Compile Linux Static Binary
         run: |
@@ -29,4 +29,4 @@ jobs:
         with:
           files: tshoot-linux-amd64
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # The automated secret token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
