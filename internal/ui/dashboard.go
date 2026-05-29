@@ -960,7 +960,7 @@ func renderFocusedPanel(state *models.AppState, theme *Theme) string {
 			Title:   "Container Logs Detail",
 			Width:   usableWidth,
 			Height:  height,
-			Content: formatContainerLogsContent(state.SelectedContainer, state.ContainerLogs, state.DockerError),
+			Content: formatContainerLogsContentFull(state.SelectedContainer, state.ContainerLogs, state.DockerError),
 		}
 	default:
 		panel = &Panel{
@@ -1075,6 +1075,24 @@ func previewLogsContent(logs []string) []string {
 	}
 	last := logs[len(logs)-1]
 	return []string{truncateToWidth(last, 24)}
+}
+
+func formatContainerLogsContentFull(selected string, logs []string, errSummary string) []string {
+	if errSummary != "" && len(logs) == 0 {
+		return []string{"Data: limited (" + errSummary + ")"}
+	}
+
+	out := make([]string, 0, len(logs)+1)
+	if selected != "" {
+		out = append(out, "["+selected+"]")
+	}
+	if len(logs) == 0 {
+		out = append(out, "No logs")
+		return out
+	}
+
+	out = append(out, logs...)
+	return out
 }
 
 // Stub modal renderers for Phase 1
@@ -1208,7 +1226,7 @@ func centerModal(theme *Theme, title string, lines []string, width, height int) 
 	contentLines = append(contentLines, titleLine)
 	contentLines = append(contentLines, strings.Repeat("─", modalWidth-4))
 
-	lineStyle := lipgloss.NewStyle().Foreground(theme.TextFg).Width(modalWidth - 4)
+	lineStyle := lipgloss.NewStyle().Foreground(theme.TextFg).Background(theme.PanelBg).Width(modalWidth - 4)
 	for _, line := range lines {
 		truncated := truncateToWidth(line, modalWidth-4)
 		contentLines = append(contentLines, lineStyle.Render(truncated))

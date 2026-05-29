@@ -104,7 +104,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.state.Metrics.LastErrorSummary = ""
 		}
 
-		topCPU, topMem, perr := collectors.CollectTopProcesses(a.procCalc, 3)
+		topCPU, topMem, perr := collectors.CollectTopProcesses(a.procCalc, 50)
 		if perr != nil {
 			a.state.ProcessError = perr.Error()
 		} else {
