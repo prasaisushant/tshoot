@@ -33,5 +33,5 @@ chmod +x tshoot
 echo "Moving tshoot into ${TARGET_DIR} (requires sudo)..."
 sudo mv tshoot "${TARGET_DIR}/tshoot"
 
-echo "✅ Success! tshoot ${LATEST_TAG} has been installed globally."
-echo "🚀 Try running it now by typing: tshoot"
+echo "Success! tshoot ${LATEST_TAG} has been installed globally."
+echo "Try running it now by typing: tshoot"
