@@ -79,81 +79,79 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.state.Height = msg.Height
 		return a, nil
 	case metricsTickMsg:
-		if !a.state.IsPaused {
-			snapshot, err := collectors.CollectSnapshot(a.cpuCalc)
-			a.state.Metrics.CPUPercent = snapshot.CPUPercent
-			a.state.Metrics.MemoryPercent = snapshot.MemoryPercent
-			a.state.Metrics.SwapPercent = snapshot.SwapPercent
-			a.state.Metrics.MemoryUsedMB = snapshot.MemoryUsedMB
-			a.state.Metrics.MemoryTotalMB = snapshot.MemoryTotalMB
-			a.state.Metrics.SwapUsedMB = snapshot.SwapUsedMB
-			a.state.Metrics.SwapTotalMB = snapshot.SwapTotalMB
-			a.state.Metrics.Load1 = snapshot.Load1
-			a.state.Metrics.Load5 = snapshot.Load5
-			a.state.Metrics.Load15 = snapshot.Load15
-			a.state.Metrics.UptimeSeconds = snapshot.UptimeSeconds
-			a.state.Metrics.Clock = snapshot.Clock
-			if err != nil {
-				a.state.Metrics.LastErrorSummary = err.Error()
-			} else {
-				a.state.Metrics.LastErrorSummary = ""
-			}
-
-			topCPU, topMem, perr := collectors.CollectTopProcesses(a.procCalc, 3)
-			if perr != nil {
-				a.state.ProcessError = perr.Error()
-			} else {
-				a.state.ProcessError = ""
-				a.state.TopCPUProcesses = convertCollectorProcesses(topCPU)
-				a.state.TopMemProcesses = convertCollectorProcesses(topMem)
-			}
-
-			ports, nerr1 := collectors.CollectOpenPorts(8)
-			ipRoutes, nerr2 := collectors.CollectIPRouteLines(6)
-			a.state.OpenPorts = ports
-			a.state.IPRouteLines = ipRoutes
-			switch {
-			case nerr1 != nil && nerr2 != nil:
-				a.state.NetworkError = nerr1.Error() + "," + nerr2.Error()
-			case nerr1 != nil:
-				a.state.NetworkError = nerr1.Error()
-			case nerr2 != nil:
-				a.state.NetworkError = nerr2.Error()
-			default:
-				a.state.NetworkError = ""
-			}
-
-			pings, perr2 := collectors.CollectPingStatuses(a.pingTargets, 1200*time.Millisecond)
-			a.state.PingResults = pings
-			if perr2 != nil {
-				a.state.PingError = perr2.Error()
-			} else {
-				a.state.PingError = ""
-			}
-
-			mounts, devices, loopCount, serr := collectors.CollectStorageSummary(4)
-			a.state.StorageMounts = mounts
-			a.state.StorageDeviceEntries = devices
-			a.state.StorageLoopCount = loopCount
-			if serr != nil {
-				a.state.StorageError = serr.Error()
-			} else {
-				a.state.StorageError = ""
-			}
-
-			readKB, writeKB, ioErr := a.diskIO.CollectIOSpeeds()
-			a.state.StorageIOReadKB = readKB
-			a.state.StorageIOWriteKB = writeKB
-			if ioErr != nil {
-				if a.state.StorageError != "" {
-					a.state.StorageError += "; " + ioErr.Error()
-				} else {
-					a.state.StorageError = ioErr.Error()
-				}
-			}
-
-			a.collectDockerSnapshot()
+		snapshot, err := collectors.CollectSnapshot(a.cpuCalc)
+		a.state.Metrics.CPUPercent = snapshot.CPUPercent
+		a.state.Metrics.MemoryPercent = snapshot.MemoryPercent
+		a.state.Metrics.SwapPercent = snapshot.SwapPercent
+		a.state.Metrics.MemoryUsedMB = snapshot.MemoryUsedMB
+		a.state.Metrics.MemoryTotalMB = snapshot.MemoryTotalMB
+		a.state.Metrics.SwapUsedMB = snapshot.SwapUsedMB
+		a.state.Metrics.SwapTotalMB = snapshot.SwapTotalMB
+		a.state.Metrics.Load1 = snapshot.Load1
+		a.state.Metrics.Load5 = snapshot.Load5
+		a.state.Metrics.Load15 = snapshot.Load15
+		a.state.Metrics.UptimeSeconds = snapshot.UptimeSeconds
+		a.state.Metrics.Clock = snapshot.Clock
+		if err != nil {
+			a.state.Metrics.LastErrorSummary = err.Error()
+		} else {
+			a.state.Metrics.LastErrorSummary = ""
 		}
+
+		topCPU, topMem, perr := collectors.CollectTopProcesses(a.procCalc, 3)
+		if perr != nil {
+			a.state.ProcessError = perr.Error()
+		} else {
+			a.state.ProcessError = ""
+			a.state.TopCPUProcesses = convertCollectorProcesses(topCPU)
+			a.state.TopMemProcesses = convertCollectorProcesses(topMem)
+		}
+
+		ports, nerr1 := collectors.CollectOpenPorts(8)
+		ipRoutes, nerr2 := collectors.CollectIPRouteLines(6)
+		a.state.OpenPorts = ports
+		a.state.IPRouteLines = ipRoutes
+		switch {
+		case nerr1 != nil && nerr2 != nil:
+			a.state.NetworkError = nerr1.Error() + "," + nerr2.Error()
+		case nerr1 != nil:
+			a.state.NetworkError = nerr1.Error()
+		case nerr2 != nil:
+			a.state.NetworkError = nerr2.Error()
+		default:
+			a.state.NetworkError = ""
+		}
+
+		pings, perr2 := collectors.CollectPingStatuses(a.pingTargets, 1200*time.Millisecond)
+		a.state.PingResults = pings
+		if perr2 != nil {
+			a.state.PingError = perr2.Error()
+		} else {
+			a.state.PingError = ""
+		}
+
+		mounts, devices, loopCount, serr := collectors.CollectStorageSummary(4)
+		a.state.StorageMounts = mounts
+		a.state.StorageDeviceEntries = devices
+		a.state.StorageLoopCount = loopCount
+		if serr != nil {
+			a.state.StorageError = serr.Error()
+		} else {
+			a.state.StorageError = ""
+		}
+
+		readKB, writeKB, ioErr := a.diskIO.CollectIOSpeeds()
+		a.state.StorageIOReadKB = readKB
+		a.state.StorageIOWriteKB = writeKB
+		if ioErr != nil {
+			if a.state.StorageError != "" {
+				a.state.StorageError += "; " + ioErr.Error()
+			} else {
+				a.state.StorageError = ioErr.Error()
+			}
+		}
+
+		a.collectDockerSnapshot()
 		return a, scheduleMetricsTick()
 	case tea.QuitMsg:
 		return a, tea.Quit
@@ -249,11 +247,6 @@ func (a *App) View() string {
 		return ui.RenderDashboard(a.state, a.theme)
 	case models.ModeModal:
 		return ui.RenderModal(a.state, a.theme)
-	case models.ModePaused:
-		pauseOverlay := a.renderPauseOverlay()
-		dashboard := ui.RenderDashboard(a.state, a.theme)
-		// Overlay pause text over dashboard
-		return a.overlayText(dashboard, pauseOverlay)
 	case models.ModeFocused:
 		// TODO: Phase 4 - Implement focused panel view
 		return ui.RenderDashboard(a.state, a.theme)
@@ -272,9 +265,8 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch a.state.Mode {
 		case models.ModeModal:
 			a.state.CloseModal()
-		case models.ModeFocused, models.ModePaused:
+		case models.ModeFocused:
 			a.state.SetMode(models.ModeNormal)
-			a.state.IsPaused = false
 		}
 		return a, tea.ClearScreen
 	}
@@ -314,9 +306,6 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, tea.Quit
 
 	// Pause/Resume
-	case "p":
-		a.state.TogglePause()
-		return a, nil
 	case "s":
 		a.state.StorageListView = !a.state.StorageListView
 		return a, nil
@@ -339,15 +328,6 @@ func (a *App) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			a.toggleModal(models.ModalFocus)
 		}
-		return a, tea.ClearScreen
-	case "f5":
-		a.toggleModal(models.ModalTheme)
-		return a, tea.ClearScreen
-	case "f6":
-		a.toggleModal(models.ModalAlerts)
-		return a, tea.ClearScreen
-	case "f7":
-		a.toggleModal(models.ModalExport)
 		return a, tea.ClearScreen
 
 	// Close modal with ESC
@@ -637,17 +617,6 @@ func trimLastRune(s string) string {
 		return ""
 	}
 	return string(runes[:len(runes)-1])
-}
-
-// renderPauseOverlay renders a pause indicator overlay
-func (a *App) renderPauseOverlay() string {
-	pauseStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("226")).
-		Background(lipgloss.Color("17")).
-		Bold(true).
-		Padding(1, 3)
-
-	return pauseStyle.Render("⏸ PAUSED - Press 'p' to resume")
 }
 
 // overlayText overlays one text on top of another (center)

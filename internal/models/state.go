@@ -7,7 +7,6 @@ const (
 	ModeNormal  UIMode = "normal"
 	ModeModal   UIMode = "modal"
 	ModeFocused UIMode = "focused"
-	ModePaused  UIMode = "paused"
 )
 
 // ModalType represents which modal (if any) is currently open
@@ -19,9 +18,6 @@ const (
 	ModalDocker      ModalType = "docker"
 	ModalPing        ModalType = "ping"
 	ModalFocus       ModalType = "focus_grid"
-	ModalTheme       ModalType = "theme"
-	ModalAlerts      ModalType = "alerts"
-	ModalExport      ModalType = "export"
 )
 
 // AppState holds the global application state
@@ -33,9 +29,6 @@ type AppState struct {
 	// Window dimensions
 	Width  int
 	Height int
-
-	// Pause state
-	IsPaused bool
 
 	// Focus state (which panel is focused)
 	FocusedPanel int
@@ -154,7 +147,6 @@ func NewAppState(width, height int) *AppState {
 		ActiveModal:  ModalNone,
 		Width:        width,
 		Height:       height,
-		IsPaused:     false,
 		FocusedPanel: 0,
 		Metrics: SystemMetrics{
 			Clock: "N/A",
@@ -200,14 +192,4 @@ func (s *AppState) OpenModal(modalType ModalType) {
 func (s *AppState) CloseModal() {
 	s.ActiveModal = ModalNone
 	s.Mode = ModeNormal
-}
-
-// TogglePause toggles pause state
-func (s *AppState) TogglePause() {
-	s.IsPaused = !s.IsPaused
-	if s.IsPaused {
-		s.Mode = ModePaused
-	} else if s.Mode == ModePaused {
-		s.Mode = ModeNormal
-	}
 }

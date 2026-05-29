@@ -118,11 +118,6 @@ func RenderFKeyBar(theme *Theme, width int) string {
 		"F2:Docker",
 		"F3:Ping",
 		"F4:Focus",
-		"F5:Theme",
-		"F6:Alerts",
-		"F7:Export",
-		"r:Reload",
-		"p:Pause",
 		"s:Storage",
 		"Tab:Next",
 		"?:Help",
@@ -642,12 +637,6 @@ func RenderModal(state *models.AppState, theme *Theme) string {
 		return renderPingModal(state, theme, state.Width, state.Height)
 	case models.ModalFocus:
 		return renderFocusModal(theme, state.Width, state.Height)
-	case models.ModalTheme:
-		return renderThemeModal(theme, state.Width, state.Height)
-	case models.ModalAlerts:
-		return renderAlertsModal(theme, state.Width, state.Height)
-	case models.ModalExport:
-		return renderExportModal(theme, state.Width, state.Height)
 	default:
 		return ""
 	}
