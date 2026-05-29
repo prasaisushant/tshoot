@@ -1,0 +1,32 @@
+name: Release Linux Tshoot Binary
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers the workflow only when you push a tag starting with 'v'
+
+jobs:
+  build-and-release:
+    name: Build Linux Binary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # CRITICAL: Gives this runner permission to upload binary assets into your repo release
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25' # Matches your go.mod perfectly
+
+      - name: Compile Linux Static Binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o tshoot-linux-amd64 ./cmd/tshoot
+
+      - name: Upload Binary to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tshoot-linux-amd64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # The automated secret token
