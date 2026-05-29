@@ -125,10 +125,7 @@ func RenderFKeyBar(theme *Theme, width int) string {
 		"F2:Docker",
 		"F3:Ping",
 		"F4:Focus",
-		"r:Reset",
 		"s:Storage",
-		"Tab:Next",
-		"?:Help",
 		"b:Back",
 		"q:Quit",
 	}
