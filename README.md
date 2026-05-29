@@ -6,6 +6,17 @@ A lightweight, zero-dependency terminal user interface (TUI) designed for instan
 
 ---
 
+
+
+## 💾 Installation
+
+You can securely bootstrap `tshoot` onto any Linux computer using single-line installation pipeline. The script automatically manages the latest release targeting, downloads the architecture-specific asset, adjusts permissions, and routes it to your global application paths.
+
+```bash
+curl -sSL https://raw.githubusercontent.com/prasaisushant/tshoot/main/install.sh | bash
+```
+---
+
 ##  What is `tshoot`?
 
 The first step of debugging any infrastructure issue is almost always identical:
@@ -54,15 +65,7 @@ The interface splits your terminal space into high-density, interactive panels t
 | `Esc` / `b` | Close active modals, clear filter streams, or leave maximized views. |
 | `q` | Immediately exit the application. |
 
----
 
-## 💾 Installation
-
-You can securely bootstrap `tshoot` onto any Linux computer using single-line installation pipeline. The script automatically manages the latest release targeting, downloads the architecture-specific asset, adjusts permissions, and routes it to your global application paths.
-
-```bash
-curl -sSL https://raw.githubusercontent.com/prasaisushant/tshoot/main/install.sh | bash
-```
 ---
 ## Gallery 
 
